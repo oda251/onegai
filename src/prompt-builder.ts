@@ -8,14 +8,15 @@ export function buildWorkerPrompt(
 ): string {
   const sections: string[] = [];
 
-  sections.push(`## 共通フロー
+  sections.push(`## Intent Gate
 
-1. タスク内容と inputs を確認する
-2. 要件不足 → sidekick の reject ツールを呼ぶ（taskId: "${taskId}", reason: "理由"）
-3. 実行する（以下のワークフローに従う）
-4. セルフレビュー
-5a. OK → sidekick の done ツールを呼ぶ（taskId: "${taskId}"${formatOutputHint(workflow.outputs)}）
-5b. 問題あり → sidekick の reject ツールを呼ぶ（taskId: "${taskId}", reason: "理由"）
+タスク内容と inputs を確認し、要件が不十分なら reject で差し戻す。
+reject: sidekick の reject ツール（taskId: "${taskId}", reason: "理由"）
+
+## 完了プロトコル
+
+done: sidekick の done ツール（taskId: "${taskId}"${formatOutputHint(workflow.outputs)}）
+reject: sidekick の reject ツール（taskId: "${taskId}", reason: "理由"）
 
 タスクID: ${taskId}`);
 

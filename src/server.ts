@@ -16,6 +16,7 @@ import {
   getStatus,
 } from "./handlers.js";
 import type { Workflow } from "./types.js";
+import { createWorkerSpawner, type SpawnWorkerFn } from "./worker.js";
 
 // --- Valibot schemas (input validation) ---
 
@@ -196,6 +197,7 @@ function configureMcpServer(
   callerId: string,
   notifiers: Map<string, NotifyFn>,
   transcriptStore: { path?: string },
+  spawnWorker?: SpawnWorkerFn,
 ) {
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: TOOL_DEFINITIONS,
@@ -212,7 +214,10 @@ function configureMcpServer(
         const parsed = v.safeParse(RunArgsSchema, args);
         if (!parsed.success) return validationError(parsed.issues);
         return runWorkflow(workflows, store, { ...parsed.output, caller: callerId, transcriptPath: transcriptStore.path }).match(
-          (data) => jsonResponse(data),
+          (data) => {
+            if (spawnWorker) spawnWorker(data.prompt, data.taskId);
+            return jsonResponse(data);
+          },
           (e) => errorResponse(e),
         );
       }
@@ -232,6 +237,7 @@ function configureMcpServer(
                 output: data.output,
               });
             }
+            if (data.next && spawnWorker) spawnWorker(data.next.prompt, data.next.taskId);
             if (task) checkGroupCompletion(store, task, notifiers);
             return jsonResponse(data);
           },
@@ -317,10 +323,14 @@ export function createServer(workflowsDir: string) {
   return { server, store, workflows };
 }
 
-export async function startServer(workflowsDir: string, port: number) {
+export async function startServer(workflowsDir: string, port: number, cwd?: string) {
   const { workflows, store } = createServerCore(workflowsDir);
   const notifiers = new Map<string, NotifyFn>();
   const transcriptStore: { path?: string } = {};
+  const spawnWorker = createWorkerSpawner({
+    serverUrl: `http://127.0.0.1:${port}/mcp`,
+    cwd: cwd ?? process.cwd(),
+  });
   const sessions = new Map<
     string,
     { transport: WebStandardStreamableHTTPServerTransport; server: Server }
@@ -350,7 +360,7 @@ export async function startServer(workflowsDir: string, port: number) {
         .catch(() => {});
     });
 
-    configureMcpServer(server, workflows, store, callerId, notifiers, transcriptStore);
+    configureMcpServer(server, workflows, store, callerId, notifiers, transcriptStore, spawnWorker);
     server.connect(transport);
 
     return transport;

@@ -28,7 +28,13 @@ export type UriCitation = {
   excerpt: string;
 };
 
-export type Citation = TranscriptCitation | UriCitation;
+export type CommandCitation = {
+  type: "command";
+  command: string;
+  excerpt: string;
+};
+
+export type Citation = TranscriptCitation | UriCitation | CommandCitation;
 
 export interface PlainInput {
   type: "plain";

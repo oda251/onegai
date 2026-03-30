@@ -9,6 +9,7 @@ const taskStatusSchema = v.picklist(["running", "done", "rejected"]);
 export const CitationSchema = v.union([
   v.object({ type: v.literal("transcript"), excerpt: v.string() }),
   v.object({ type: v.literal("uri"), source: v.string(), excerpt: v.string() }),
+  v.object({ type: v.literal("command"), command: v.string(), excerpt: v.string() }),
 ]);
 
 export const PlainInputSchema = v.object({

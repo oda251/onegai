@@ -142,6 +142,46 @@ describe("createDefaultVerifier", () => {
     expect(results).toHaveLength(0);
   });
 
+  it("finds excerpt in command output", async () => {
+    const results = await verify(
+      entry("ref", {
+        type: "evidenced",
+        body: "test",
+        citations: [{ type: "command", command: "echo hello world", excerpt: "hello" }],
+      }),
+    );
+
+    expect(results).toHaveLength(1);
+    expect(results[0].ok).toBe(true);
+  });
+
+  it("reports missing excerpt in command output", async () => {
+    const results = await verify(
+      entry("ref", {
+        type: "evidenced",
+        body: "test",
+        citations: [{ type: "command", command: "echo hello", excerpt: "goodbye" }],
+      }),
+    );
+
+    expect(results).toHaveLength(1);
+    expect(results[0].ok).toBe(false);
+    expect(results[0].detail).toContain("not found in output");
+  });
+
+  it("reports failed command", async () => {
+    const results = await verify(
+      entry("ref", {
+        type: "evidenced",
+        body: "test",
+        citations: [{ type: "command", command: "nonexistent_command_xyz", excerpt: "anything" }],
+      }),
+    );
+
+    expect(results).toHaveLength(1);
+    expect(results[0].ok).toBe(false);
+  });
+
   it("reports missing transcript path", async () => {
     const results = await verify(
       entry("what", {

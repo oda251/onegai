@@ -107,7 +107,7 @@ const TOOL_DEFINITIONS = [
         type: { type: "string", description: "Workflow type from workflows tool (e.g. dev/impl)" },
         title: { type: "string", description: "Human-readable task title. Should be specific enough for the worker to understand the goal." },
         inputs: { type: "object", description: "Key-value map matching the workflow's required inputs. Each value is either {type:'plain', value:string} for simple values, or {type:'evidenced', body:string, citations:[...]} when the input is based on conversation or existing sources." },
-        group: { type: "string", description: "Shared ID for parallel tasks. All tasks with the same group trigger a single group.done notification when all complete." },
+        group: { type: "string", description: "Optional. Group ID for batching parallel tasks." },
       },
       required: ["type", "title", "inputs"],
     },

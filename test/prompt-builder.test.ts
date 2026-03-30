@@ -32,8 +32,8 @@ describe("buildWorkerPrompt", () => {
     expect(prompt).toContain("src/auth/");
     expect(prompt).toContain("Write the code following TDD.");
     expect(prompt).toContain("changes");
-    expect(prompt).toContain("done(");
-    expect(prompt).toContain("reject(");
+    expect(prompt).toContain("done");
+    expect(prompt).toContain("reject");
   });
 
   it("omits outputs section when no next chain", () => {
@@ -78,8 +78,9 @@ describe("buildWorkerPrompt", () => {
 
     const prompt = buildWorkerPrompt(workflow, { what: { type: "evidenced", body: "x", citations: [citation] } }, "abc-999");
 
-    expect(prompt).toContain('done(taskId: "abc-999"');
-    expect(prompt).toContain('reject(taskId: "abc-999"');
+    expect(prompt).toContain("done");
+    expect(prompt).toContain("reject");
+    expect(prompt).toContain("abc-999");
   });
 
   it("formats multiple output keys in done hint", () => {

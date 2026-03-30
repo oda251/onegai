@@ -30,10 +30,8 @@ export function buildWorkerPrompt(
   // プロトコル
   sections.push(`## プロトコル
 
-inputs が不十分なら作業を始めずに reject する。
-
-- done(taskId: "${taskId}"${formatOutputHint(workflow.outputs)}) — 完了
-- reject(taskId: "${taskId}", reason: "理由") — 差し戻し`);
+inputs が不十分なら作業を始めずに reject で差し戻す。
+作業が完了したら done で報告する。`);
 
   return sections.join("\n\n");
 }
@@ -62,8 +60,3 @@ function resolveSource(citation: Citation, transcriptPath?: string): string {
   return citation.source;
 }
 
-function formatOutputHint(outputs: Record<string, string>): string {
-  const keys = Object.keys(outputs);
-  if (keys.length === 0) return "";
-  return `, output: {${keys.map((k) => ` ${k}: "..." `).join(",")}}`;
-}

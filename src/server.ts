@@ -95,65 +95,64 @@ function notifyIfGroupSettled(
 const TOOL_DEFINITIONS = [
   {
     name: "workflows",
-    description:
-      "List available workflow types with their descriptions and required inputs",
+    description: "Call first to discover available task types before using run. Returns each workflow's type, description, required inputs, and whether user confirmation is needed.",
     inputSchema: { type: "object" as const, properties: {} },
   },
   {
     name: "run",
-    description: "Start a task with a specific workflow type",
+    description: "Delegate a task to a worker. Call when you can fill all required inputs for a workflow. Evidenced inputs must include citations — sidekick verifies them before accepting. The worker is spawned automatically.",
     inputSchema: {
       type: "object" as const,
       properties: {
-        type: { type: "string", description: "Workflow type (e.g. dev/impl)" },
-        title: { type: "string", description: "Task title" },
-        inputs: { type: "object", description: "Input parameters — values are {body, citations?} objects" },
-        group: { type: "string", description: "Optional group ID for parallel execution" },
+        type: { type: "string", description: "Workflow type from workflows tool (e.g. dev/impl)" },
+        title: { type: "string", description: "Human-readable task title. Should be specific enough for the worker to understand the goal." },
+        inputs: { type: "object", description: "Key-value map matching the workflow's required inputs. Each value is either {type:'plain', value:string} for simple values, or {type:'evidenced', body:string, citations:[...]} when the input is based on conversation or existing sources." },
+        group: { type: "string", description: "Shared ID for parallel tasks. All tasks with the same group trigger a single group.done notification when all complete." },
       },
       required: ["type", "title", "inputs"],
     },
   },
   {
     name: "done",
-    description: "Complete a running task with output values",
+    description: "Report task completion. Call when the assigned work is finished. If the workflow defines outputs, they must be included.",
     inputSchema: {
       type: "object" as const,
       properties: {
-        taskId: { type: "string", description: "Task ID to complete" },
-        output: { type: "object", description: "Output key-value pairs" },
+        taskId: { type: "string", description: "Task ID received in the task prompt" },
+        output: { type: "object", description: "Key-value output. Must include all keys listed in the task's Outputs section." },
       },
       required: ["taskId", "output"],
     },
   },
   {
     name: "reject",
-    description: "Reject a running task with a reason",
+    description: "Reject a task and return it to the caller. Call when inputs are insufficient or the task cannot be completed. Do not start work — reject immediately.",
     inputSchema: {
       type: "object" as const,
       properties: {
-        taskId: { type: "string", description: "Task ID to reject" },
-        reason: { type: "string", description: "Rejection reason" },
+        taskId: { type: "string", description: "Task ID received in the task prompt" },
+        reason: { type: "string", description: "Why the task cannot proceed. Be specific so the caller can fix the inputs." },
       },
       required: ["taskId", "reason"],
     },
   },
   {
     name: "status",
-    description: "Get status of tasks",
+    description: "Check task progress. Call to monitor running tasks or verify completion.",
     inputSchema: {
       type: "object" as const,
       properties: {
-        taskId: { type: "string", description: "Optional task ID to filter by" },
+        taskId: { type: "string", description: "Specific task ID to check. Omit to get all tasks." },
       },
     },
   },
   {
     name: "register-transcript",
-    description: "Register the transcript file path for the current session",
+    description: "Register the conversation transcript path. Called automatically by the SessionStart hook — typically not called manually.",
     inputSchema: {
       type: "object" as const,
       properties: {
-        path: { type: "string", description: "Absolute path to the transcript JSONL file" },
+        path: { type: "string", description: "Absolute path to the session's JSONL transcript file" },
       },
       required: ["path"],
     },

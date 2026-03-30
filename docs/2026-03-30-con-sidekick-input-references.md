@@ -98,5 +98,3 @@ SessionStart hook
 
 - JSONL のフォーマットは非公式。Claude Code のバージョンアップで構造が変わるリスクがある
 - outputs にも引用付き構造を使うべきか（チェーンで次ステップに渡す場合）
-- transcript_path の登録 API の具体的なインターフェース（MCP ツール追加 or 環境変数）
-- inputs の型を `Record<string, string>` から `Record<string, string | InputValue>` に拡張する際の後方互換性

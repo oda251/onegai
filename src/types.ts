@@ -1,6 +1,13 @@
+export type InputType = "plain" | "evidenced";
+
+export interface InputSpec {
+  description: string;
+  type: InputType;
+}
+
 export interface WorkflowFrontmatter {
   description: string;
-  inputs: Record<string, string>;   // key → description（ワークフロー定義用）
+  inputs: Record<string, InputSpec>;
   "confirm-before-run": boolean;
   next?: string;
   internal: boolean;

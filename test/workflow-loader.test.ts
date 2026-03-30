@@ -61,8 +61,8 @@ Review the changes.`,
     const impl = workflows.get("dev/impl") ?? (() => { throw new Error("dev/impl not found"); })();
     expect(impl.frontmatter.description).toBe("Implement code");
     expect(impl.frontmatter.inputs).toEqual({
-      what: "What to implement",
-      where: "Target file",
+      what: { description: "What to implement", type: "evidenced" },
+      where: { description: "Target file", type: "evidenced" },
     });
     expect(impl.frontmatter["confirm-before-run"]).toBe(true);
     expect(impl.frontmatter.next).toBe("review");

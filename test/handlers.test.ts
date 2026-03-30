@@ -17,7 +17,7 @@ function makeWorkflows(): Map<string, Workflow> {
     name: "impl",
     frontmatter: {
       description: "Implement code",
-      inputs: { what: "What to implement", where: "Target file" },
+      inputs: { what: { description: "What to implement", type: "evidenced" }, where: { description: "Target file", type: "plain" } },
       "confirm-before-run": true,
       next: "review",
       internal: false,
@@ -31,7 +31,7 @@ function makeWorkflows(): Map<string, Workflow> {
     name: "review",
     frontmatter: {
       description: "Review implementation",
-      inputs: { changes: "Changed files" },
+      inputs: { changes: { description: "Changed files", type: "evidenced" } },
       "confirm-before-run": false,
       internal: true,
     },
@@ -44,7 +44,7 @@ function makeWorkflows(): Map<string, Workflow> {
     name: "gather",
     frontmatter: {
       description: "Gather information",
-      inputs: { topic: "Research topic" },
+      inputs: { topic: { description: "Research topic", type: "evidenced" } },
       "confirm-before-run": false,
       internal: false,
     },
@@ -84,7 +84,7 @@ describe("runWorkflow", () => {
     const result = runWorkflow(makeWorkflows(), store, {
       type: "dev/impl",
       title: "Add auth",
-      inputs: { what: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"JWT" }, where: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"src/" } },
+      inputs: { what: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"JWT" }, where: { type: "plain", value:"src/" } },
     });
 
     expect(result.isOk()).toBe(true);
@@ -135,7 +135,7 @@ describe("runWorkflow", () => {
     const result = runWorkflow(makeWorkflows(), store, {
       type: "dev/impl",
       title: "Test",
-      inputs: { what: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"something" }, where: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"" } },
+      inputs: { what: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"something" }, where: { type: "plain", value:"" } },
     });
 
     expect(result.isErr()).toBe(true);
@@ -172,7 +172,7 @@ describe("completeTask", () => {
     const run = runWorkflow(workflows, store, {
       type: "dev/impl",
       title: "Add auth",
-      inputs: { what: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"auth" }, where: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"src/" } },
+      inputs: { what: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"auth" }, where: { type: "plain", value:"src/" } },
     });
     const { task: { id: taskId } } = run._unsafeUnwrap();
 
@@ -204,7 +204,7 @@ describe("completeTask", () => {
     const run = runWorkflow(workflows, store, {
       type: "dev/impl",
       title: "Add auth",
-      inputs: { what: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"auth" }, where: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"src/" } },
+      inputs: { what: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"auth" }, where: { type: "plain", value:"src/" } },
     });
     const { task: { id: taskId } } = run._unsafeUnwrap();
 
@@ -227,7 +227,7 @@ describe("completeTask", () => {
     const run = runWorkflow(workflows, store, {
       type: "dev/impl",
       title: "Test",
-      inputs: { what: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"auth" }, where: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"src/" } },
+      inputs: { what: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"auth" }, where: { type: "plain", value:"src/" } },
     });
     const { task: { id: taskId } } = run._unsafeUnwrap();
 

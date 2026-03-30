@@ -12,7 +12,7 @@ describe("buildWorkerPrompt", () => {
       name: "impl",
       frontmatter: {
         description: "Implement code",
-        inputs: { what: "What to implement", where: "Target file" },
+        inputs: { what: { description: "What to implement", type: "evidenced" }, where: { description: "Target file", type: "plain" } },
         "confirm-before-run": true,
         next: "review",
         internal: false,
@@ -43,7 +43,7 @@ describe("buildWorkerPrompt", () => {
       name: "review",
       frontmatter: {
         description: "Review code",
-        inputs: { changes: "Changed files" },
+        inputs: { changes: { description: "Changed files", type: "evidenced" } },
         "confirm-before-run": false,
         internal: true,
       },
@@ -68,7 +68,7 @@ describe("buildWorkerPrompt", () => {
       name: "impl",
       frontmatter: {
         description: "Impl",
-        inputs: { what: "What" },
+        inputs: { what: { description: "What", type: "evidenced" } },
         "confirm-before-run": false,
         internal: false,
       },
@@ -90,7 +90,7 @@ describe("buildWorkerPrompt", () => {
       name: "impl",
       frontmatter: {
         description: "Impl",
-        inputs: { what: "What" },
+        inputs: { what: { description: "What", type: "evidenced" } },
         "confirm-before-run": false,
         next: "review",
         internal: false,
@@ -113,7 +113,7 @@ describe("buildWorkerPrompt", () => {
       name: "review",
       frontmatter: {
         description: "Review",
-        inputs: { changes: "Changes" },
+        inputs: { changes: { description: "Changes", type: "evidenced" } },
         "confirm-before-run": false,
         internal: false,
       },
@@ -137,7 +137,7 @@ describe("buildWorkerPrompt", () => {
       name: "impl",
       frontmatter: {
         description: "Impl",
-        inputs: { what: "What" },
+        inputs: { what: { description: "What", type: "evidenced" } },
         "confirm-before-run": false,
         internal: false,
       },

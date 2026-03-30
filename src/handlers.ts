@@ -1,5 +1,5 @@
 import { ok, err, type Result } from "neverthrow";
-import type { Workflow, Task, InputEntry } from "./types.js";
+import type { Workflow, Task, InputEntry, InputSpec } from "./types.js";
 import type { TaskStore } from "./task-store.js";
 import { getRunnableWorkflows } from "./workflow-loader.js";
 import { buildWorkerPrompt } from "./prompt-builder.js";
@@ -7,7 +7,7 @@ import { buildWorkerPrompt } from "./prompt-builder.js";
 export interface WorkflowSummary {
   type: string;
   description: string;
-  inputs: Record<string, string>;
+  inputs: Record<string, InputSpec>;
   "confirm-before-run": boolean;
 }
 
@@ -69,15 +69,20 @@ export function runWorkflow(
     return err(`Workflow ${params.type} is internal (not directly runnable)`);
   }
 
-  const missingInputs: string[] = [];
-  for (const key of Object.keys(workflow.frontmatter.inputs)) {
+  const errors: string[] = [];
+  for (const [key, spec] of Object.entries(workflow.frontmatter.inputs)) {
     if (!(key in params.inputs) || !inputText(params.inputs[key])) {
-      missingInputs.push(key);
+      errors.push(`missing: ${key}`);
+      continue;
+    }
+    const entry = params.inputs[key];
+    if (entry.type !== spec.type) {
+      errors.push(`${key}: expected ${spec.type}, got ${entry.type}`);
     }
   }
 
-  if (missingInputs.length > 0) {
-    return err(`Missing required inputs: ${missingInputs.join(", ")}`);
+  if (errors.length > 0) {
+    return err(`Invalid inputs: ${errors.join("; ")}`);
   }
 
   const task = store.create({

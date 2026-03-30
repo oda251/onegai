@@ -92,10 +92,12 @@ sequenceDiagram
 ---
 description: コードを実装する
 inputs:
-  what: 実装内容
-  where: 対象ファイル
+  what: 実装内容                # 短縮形 → evidenced（citation 必須）
+  where:
+    description: 対象ファイル
+    type: plain                 # ファイルパスなので plain
 confirm-before-run: true
-next: review                  # 完了後に review を自動実行
+next: review                    # 完了後に review を自動実行
 ---
 
 （ワーカーへの作業指示がここに書かれる）

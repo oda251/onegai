@@ -6,15 +6,35 @@ import type { Workflow, LintError } from "./types.js";
 
 // --- Core: pure parsing and validation ---
 
-const FrontmatterSchema = v.object({
+const InputSpecSchema = v.union([
+  v.string(),
+  v.object({
+    description: v.string(),
+    type: v.picklist(["plain", "evidenced"]),
+  }),
+]);
+
+const RawFrontmatterSchema = v.object({
   description: v.pipe(v.string(), v.minLength(1)),
-  inputs: v.record(v.string(), v.string()),
+  inputs: v.record(v.string(), InputSpecSchema),
   "confirm-before-run": v.optional(v.boolean(), false),
   next: v.optional(v.string()),
   internal: v.optional(v.boolean(), false),
   tools: v.optional(v.array(v.string())),
   "permission-mode": v.optional(v.string()),
 });
+
+function normalizeInputs(
+  raw: Record<string, string | { description: string; type: "plain" | "evidenced" }>,
+): Record<string, { description: string; type: "plain" | "evidenced" }> {
+  const result: Record<string, { description: string; type: "plain" | "evidenced" }> = {};
+  for (const [key, val] of Object.entries(raw)) {
+    result[key] = typeof val === "string"
+      ? { description: val, type: "evidenced" }
+      : val;
+  }
+  return result;
+}
 
 export function parseWorkflow(
   type: string,
@@ -23,7 +43,7 @@ export function parseWorkflow(
   raw: string,
 ): { workflow: Workflow } | { error: LintError } {
   const { data, content } = matter(raw);
-  const result = v.safeParse(FrontmatterSchema, data);
+  const result = v.safeParse(RawFrontmatterSchema, data);
 
   if (!result.success) {
     const issues = result.issues.map((i) => i.message).join("; ");
@@ -35,7 +55,7 @@ export function parseWorkflow(
       type,
       domain,
       name,
-      frontmatter: result.output,
+      frontmatter: { ...result.output, inputs: normalizeInputs(result.output.inputs) },
       body: content.trim(),
       outputs: {},
     },
@@ -65,9 +85,9 @@ export function resolveOutputs(
     const currentInputKeys = new Set(
       Object.keys(workflow.frontmatter.inputs),
     );
-    for (const [key, desc] of Object.entries(nextWorkflow.frontmatter.inputs)) {
+    for (const [key, spec] of Object.entries(nextWorkflow.frontmatter.inputs)) {
       if (!currentInputKeys.has(key)) {
-        workflow.outputs[key] = desc;
+        workflow.outputs[key] = spec.description;
       }
     }
   }

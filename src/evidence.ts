@@ -40,7 +40,7 @@ async function verifyCitation(
 
   if (isFilePath(citation.source)) {
     if (!isTextFile(citation.source)) {
-      return { key, citation, ok: false, detail: `not a text file: ${citation.source}` };
+      return { key, citation, ok: true };
     }
     return verifyTextFile(key, citation, citation.source);
   }

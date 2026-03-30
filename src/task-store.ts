@@ -4,6 +4,7 @@ import type { Task, InputValue } from "./types.js";
 
 export class TaskStore {
   private tasks = new Map<string, Task>();
+  private groupIndex = new Map<string, Set<string>>();
 
   create(params: {
     type: string;
@@ -26,6 +27,14 @@ export class TaskStore {
       caller: params.caller,
     };
     this.tasks.set(task.id, task);
+    if (task.group) {
+      let ids = this.groupIndex.get(task.group);
+      if (!ids) {
+        ids = new Set();
+        this.groupIndex.set(task.group, ids);
+      }
+      ids.add(task.id);
+    }
     return task;
   }
 
@@ -54,11 +63,22 @@ export class TaskStore {
   }
 
   getRunning(): Task[] {
-    return this.list().filter((t) => t.status === "running");
+    const result: Task[] = [];
+    for (const t of this.tasks.values()) {
+      if (t.status === "running") result.push(t);
+    }
+    return result;
   }
 
   getByGroup(groupId: string): Task[] {
-    return this.list().filter((t) => t.group === groupId);
+    const ids = this.groupIndex.get(groupId);
+    if (!ids) return [];
+    const result: Task[] = [];
+    for (const id of ids) {
+      const task = this.tasks.get(id);
+      if (task) result.push(task);
+    }
+    return result;
   }
 
   private ensureRunning(id: string): Result<Task, string> {

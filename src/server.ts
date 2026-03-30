@@ -17,7 +17,7 @@ import {
   findRootTaskId,
   getSettledGroup,
 } from "./handlers.js";
-import type { Workflow } from "./types.js";
+import type { Workflow, Task } from "./types.js";
 import { createWorkerSpawner, type SpawnWorkerFn } from "./worker.js";
 import { defaults, serverUrl, type ServerConfig } from "./config.js";
 
@@ -89,6 +89,35 @@ function notifyCaller(
   if (!callerId) return;
   const fn = notifiers.get(callerId);
   if (fn) fn(event, params);
+}
+
+function notifyTaskSettled(
+  notifiers: Map<string, NotifyFn>,
+  store: TaskStore,
+  task: Task,
+  event: string,
+  extra: Record<string, unknown>,
+) {
+  const rootId = findRootTaskId(store, task.id);
+  const rootTask = rootId !== task.id ? store.get(rootId) : task;
+  notifyCaller(notifiers, task.caller, event, {
+    taskId: rootId,
+    title: (rootTask ?? task).title,
+    ...extra,
+  });
+}
+
+function notifyIfGroupSettled(
+  notifiers: Map<string, NotifyFn>,
+  store: TaskStore,
+  task: Task,
+) {
+  const settled = getSettledGroup(store, task);
+  if (!settled) return;
+  notifyCaller(notifiers, task.caller, "group.done", {
+    group: settled.group,
+    tasks: settled.tasks.map((t) => ({ taskId: t.id, title: t.title, status: t.status })),
+  });
 }
 
 // --- MCP tool definitions ---
@@ -163,15 +192,17 @@ const TOOL_DEFINITIONS = [
 
 // --- MCP server wiring ---
 
-function configureMcpServer(
-  server: Server,
-  workflows: Map<string, Workflow>,
-  store: TaskStore,
-  callerId: string,
-  notifiers: Map<string, NotifyFn>,
-  transcriptStore: { path?: string },
-  spawnWorker?: SpawnWorkerFn,
-) {
+interface McpContext {
+  workflows: Map<string, Workflow>;
+  store: TaskStore;
+  callerId: string;
+  notifiers: Map<string, NotifyFn>;
+  transcriptStore: { path?: string };
+  spawnWorker?: SpawnWorkerFn;
+}
+
+function configureMcpServer(server: Server, ctx: McpContext) {
+  const { workflows, store, callerId, notifiers, transcriptStore, spawnWorker } = ctx;
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: TOOL_DEFINITIONS,
   }));
@@ -201,25 +232,9 @@ function configureMcpServer(
         return completeTask(workflows, store, parsed.output, transcriptStore.path).match(
           (data) => {
             const task = store.get(data.taskId);
-            if (!data.next && task) {
-              const rootId = findRootTaskId(store, data.taskId);
-              const rootTask = rootId !== data.taskId ? store.get(rootId) : task;
-              notifyCaller(notifiers, task.caller, "task.done", {
-                taskId: rootId,
-                title: (rootTask ?? task).title,
-                output: data.output,
-              });
-            }
+            if (!data.next && task) notifyTaskSettled(notifiers, store, task, "task.done", { output: data.output });
             if (data.next && spawnWorker) spawnWorker(data.next.prompt, data.next.taskId);
-            if (task) {
-              const settled = getSettledGroup(store, task);
-              if (settled) {
-                notifyCaller(notifiers, task.caller, "group.done", {
-                  group: settled.group,
-                  tasks: settled.tasks.map((t) => ({ taskId: t.id, title: t.title, status: t.status })),
-                });
-              }
-            }
+            if (task) notifyIfGroupSettled(notifiers, store, task);
             return jsonResponse(data);
           },
           (e) => errorResponse(e),
@@ -233,20 +248,8 @@ function configureMcpServer(
           (data) => {
             const task = store.get(data.taskId);
             if (task) {
-              const rootId = findRootTaskId(store, data.taskId);
-              const rootTask = rootId !== data.taskId ? store.get(rootId) : task;
-              notifyCaller(notifiers, task.caller, "task.rejected", {
-                taskId: rootId,
-                title: (rootTask ?? task).title,
-                reason: data.reason,
-              });
-              const settled = getSettledGroup(store, task);
-              if (settled) {
-                notifyCaller(notifiers, task.caller, "group.done", {
-                  group: settled.group,
-                  tasks: settled.tasks.map((t) => ({ taskId: t.id, title: t.title, status: t.status })),
-                });
-              }
+              notifyTaskSettled(notifiers, store, task, "task.rejected", { reason: data.reason });
+              notifyIfGroupSettled(notifiers, store, task);
             }
             return jsonResponse(data);
           },
@@ -306,7 +309,7 @@ export function createServer(workflowsDir: string) {
   });
 
   const transcriptStore: { path?: string } = {};
-  configureMcpServer(server, workflows, store, callerId, notifiers, transcriptStore);
+  configureMcpServer(server, { workflows, store, callerId, notifiers, transcriptStore });
   return { server, store, workflows };
 }
 
@@ -352,7 +355,7 @@ export async function startServer(config: Pick<ServerConfig, "workflowsDir" | "p
         .catch(() => {});
     });
 
-    configureMcpServer(server, workflows, store, callerId, notifiers, transcriptStore, spawnWorker);
+    configureMcpServer(server, { workflows, store, callerId, notifiers, transcriptStore, spawnWorker });
     server.connect(transport);
 
     return transport;

@@ -35,10 +35,6 @@ export interface RejectResult {
   reason: string;
 }
 
-function inputBody(entry: InputValue): string {
-  return entry.body;
-}
-
 export function listWorkflows(
   workflows: Map<string, Workflow>,
 ): WorkflowSummary[] {
@@ -71,7 +67,7 @@ export function runWorkflow(
 
   const missingInputs: string[] = [];
   for (const key of Object.keys(workflow.frontmatter.inputs)) {
-    if (!(key in params.inputs) || !inputBody(params.inputs[key])) {
+    if (!(key in params.inputs) || !params.inputs[key]?.body) {
       missingInputs.push(key);
     }
   }

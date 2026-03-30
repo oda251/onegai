@@ -7,9 +7,12 @@
     "sidekick": "./src/cli.ts"
   },
   "scripts": {
+    "dev": "bun src/cli.ts serve",
+    "start": "bun src/cli.ts serve",
     "test": "bun test",
     "lint": "oxlint -c oxlintrc.json src/ test/",
-    "lint:workflows": "bun src/cli.ts lint"
+    "lint:workflows": "bun src/cli.ts lint",
+    "check": "bun test && oxlint -c oxlintrc.json src/ test/"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.87",

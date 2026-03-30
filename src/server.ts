@@ -17,6 +17,7 @@ import {
 } from "./handlers.js";
 import type { Workflow } from "./types.js";
 import { createWorkerSpawner, type SpawnWorkerFn } from "./worker.js";
+import { defaults, serverUrl, type ServerConfig } from "./config.js";
 
 // --- Valibot schemas (input validation) ---
 
@@ -37,10 +38,6 @@ const RunArgsSchema = v.object({
   group: v.optional(v.string()),
 });
 
-const RegisterTranscriptArgsSchema = v.object({
-  path: v.pipe(v.string(), v.minLength(1)),
-});
-
 const StatusArgsSchema = v.object({
   taskId: v.optional(v.string()),
 });
@@ -53,6 +50,10 @@ const DoneArgsSchema = v.object({
 const RejectArgsSchema = v.object({
   taskId: v.pipe(v.string(), v.minLength(1)),
   reason: v.pipe(v.string(), v.minLength(1)),
+});
+
+const RegisterTranscriptArgsSchema = v.object({
+  path: v.pipe(v.string(), v.minLength(1)),
 });
 
 // --- MCP response helpers ---
@@ -135,7 +136,7 @@ const TOOL_DEFINITIONS = [
       properties: {
         type: { type: "string", description: "Workflow type (e.g. dev/impl)" },
         title: { type: "string", description: "Task title" },
-        inputs: { type: "object", description: "Input parameters — values can be strings or {body, citations} objects" },
+        inputs: { type: "object", description: "Input parameters — values are {body, citations?} objects" },
         group: { type: "string", description: "Optional group ID for parallel execution" },
       },
       required: ["type", "title", "inputs"],
@@ -323,13 +324,18 @@ export function createServer(workflowsDir: string) {
   return { server, store, workflows };
 }
 
-export async function startServer(workflowsDir: string, port: number, cwd?: string) {
-  const { workflows, store } = createServerCore(workflowsDir);
+export async function startServer(config: Pick<ServerConfig, "workflowsDir" | "port"> & Partial<ServerConfig>) {
+  const fullConfig: ServerConfig = {
+    hostname: defaults.hostname,
+    cwd: process.cwd(),
+    ...config,
+  };
+  const { workflows, store } = createServerCore(fullConfig.workflowsDir);
   const notifiers = new Map<string, NotifyFn>();
   const transcriptStore: { path?: string } = {};
   const spawnWorker = createWorkerSpawner({
-    serverUrl: `http://127.0.0.1:${port}/mcp`,
-    cwd: cwd ?? process.cwd(),
+    serverUrl: serverUrl(fullConfig),
+    cwd: fullConfig.cwd,
   });
   const sessions = new Map<
     string,
@@ -367,11 +373,11 @@ export async function startServer(workflowsDir: string, port: number, cwd?: stri
   }
 
   const httpServer = Bun.serve({
-    port,
-    hostname: "127.0.0.1",
+    port: fullConfig.port,
+    hostname: fullConfig.hostname,
     async fetch(req) {
       const url = new URL(req.url);
-      if (url.pathname !== "/mcp") {
+      if (url.pathname !== defaults.mcpPath) {
         return new Response("Not Found", { status: 404 });
       }
 
@@ -403,7 +409,7 @@ export async function startServer(workflowsDir: string, port: number, cwd?: stri
     },
   });
 
-  console.log(`[sidekick] listening on http://127.0.0.1:${httpServer.port}/mcp`);
+  console.log(`[sidekick] listening on ${serverUrl(fullConfig)}`);
 
   return function stop() {
     for (const { transport } of sessions.values()) {

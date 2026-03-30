@@ -76,7 +76,7 @@ describe("HTTP transport", () => {
   it("accepts MCP client connections", async () => {
     setupWorkflows();
     const port = randomPort();
-    stopServer = await startServer(tmpDir, port);
+    stopServer = await startServer({ workflowsDir: tmpDir, port });
 
     const client = await connectHttpClient(port);
 
@@ -97,7 +97,7 @@ describe("HTTP transport", () => {
   it("shares TaskStore across multiple clients", async () => {
     setupWorkflows();
     const port = randomPort();
-    stopServer = await startServer(tmpDir, port);
+    stopServer = await startServer({ workflowsDir: tmpDir, port });
 
     const client1 = await connectHttpClient(port);
     const client2 = await connectHttpClient(port);
@@ -136,7 +136,7 @@ describe("HTTP routing", () => {
   it("returns 404 for non-/mcp paths", async () => {
     setupWorkflows();
     const port = randomPort();
-    stopServer = await startServer(tmpDir, port);
+    stopServer = await startServer({ workflowsDir: tmpDir, port });
 
     const res = await fetch(`http://127.0.0.1:${port}/other`);
     expect(res.status).toBe(404);
@@ -145,7 +145,7 @@ describe("HTTP routing", () => {
   it("returns 400 for non-initialize POST without session", async () => {
     setupWorkflows();
     const port = randomPort();
-    stopServer = await startServer(tmpDir, port);
+    stopServer = await startServer({ workflowsDir: tmpDir, port });
 
     const res = await fetch(`http://127.0.0.1:${port}/mcp`, {
       method: "POST",
@@ -162,7 +162,7 @@ describe("HTTP routing", () => {
   it("returns 400 for invalid JSON body", async () => {
     setupWorkflows();
     const port = randomPort();
-    stopServer = await startServer(tmpDir, port);
+    stopServer = await startServer({ workflowsDir: tmpDir, port });
 
     const res = await fetch(`http://127.0.0.1:${port}/mcp`, {
       method: "POST",
@@ -185,7 +185,7 @@ inputs:
 Research.`,
     );
     const port = randomPort();
-    stopServer = await startServer(tmpDir, port);
+    stopServer = await startServer({ workflowsDir: tmpDir, port });
 
     // Client 1 (caller) creates task
     const notifications1: unknown[] = [];
@@ -241,7 +241,7 @@ Research.`,
   it("returns 404 for unknown session ID", async () => {
     setupWorkflows();
     const port = randomPort();
-    stopServer = await startServer(tmpDir, port);
+    stopServer = await startServer({ workflowsDir: tmpDir, port });
 
     const res = await fetch(`http://127.0.0.1:${port}/mcp`, {
       method: "POST",

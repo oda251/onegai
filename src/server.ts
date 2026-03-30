@@ -21,6 +21,8 @@ import {
 import type { Workflow, Task } from "./types.js";
 import { createWorkerSpawner, type SpawnWorkerFn } from "./worker.js";
 import { defaults, serverUrl, type ServerConfig } from "./config.js";
+import { createDefaultVerifier, type EvidenceVerifier } from "./evidence.js";
+import type { EvidencedInput } from "./types.js";
 import {
   RunArgsSchema,
   DoneArgsSchema,
@@ -167,10 +169,11 @@ interface McpContext {
   notifiers: Map<string, NotifyFn>;
   transcriptStore: { path?: string };
   spawnWorker?: SpawnWorkerFn;
+  verifyEvidence?: EvidenceVerifier;
 }
 
 function configureMcpServer(server: Server, ctx: McpContext) {
-  const { workflows, store, callerId, notifiers, transcriptStore, spawnWorker } = ctx;
+  const { workflows, store, callerId, notifiers, transcriptStore, spawnWorker, verifyEvidence } = ctx;
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: TOOL_DEFINITIONS,
   }));
@@ -186,11 +189,23 @@ function configureMcpServer(server: Server, ctx: McpContext) {
         const parsed = v.safeParse(RunArgsSchema, args);
         if (!parsed.success) return validationError(parsed.issues);
         return runWorkflow(workflows, store, { ...parsed.output, caller: callerId, transcriptPath: transcriptStore.path }).match(
-          (data) => {
+          async (data) => {
+            let warnings: { key: string; detail: string }[] | undefined;
+            if (verifyEvidence) {
+              const evidenced: Record<string, { entry: EvidencedInput; key: string }> = {};
+              for (const [k, entry] of Object.entries(parsed.output.inputs)) {
+                if (entry.type === "evidenced") evidenced[k] = { entry, key: k };
+              }
+              if (Object.keys(evidenced).length > 0) {
+                const results = await verifyEvidence(evidenced, transcriptStore.path);
+                const failed = results.filter((r): r is typeof r & { detail: string } => !r.ok && !!r.detail);
+                if (failed.length > 0) warnings = failed.map((r) => ({ key: r.key, detail: r.detail }));
+              }
+            }
             if (spawnWorker) spawnWorker(data.prompt, data.task.id);
             const dto: RunResponse = {
               taskId: data.task.id, title: data.task.title,
-              status: data.status, prompt: data.prompt,
+              status: data.status, prompt: data.prompt, warnings,
             };
             return jsonResponse(dto);
           },
@@ -301,6 +316,7 @@ export async function startServer(config: Pick<ServerConfig, "workflowsDir" | "p
     serverUrl: serverUrl(fullConfig),
     cwd: fullConfig.cwd,
   });
+  const verifyEvidence = createDefaultVerifier();
   const sessions = new Map<
     string,
     { transport: WebStandardStreamableHTTPServerTransport; server: Server }
@@ -330,7 +346,7 @@ export async function startServer(config: Pick<ServerConfig, "workflowsDir" | "p
         .catch(() => {});
     });
 
-    configureMcpServer(server, { workflows, store, callerId, notifiers, transcriptStore, spawnWorker });
+    configureMcpServer(server, { workflows, store, callerId, notifiers, transcriptStore, spawnWorker, verifyEvidence });
     server.connect(transport);
 
     return transport;

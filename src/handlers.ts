@@ -12,13 +12,13 @@ export interface WorkflowSummary {
 }
 
 export interface RunResult {
-  taskId: string;
+  task: Task;
   status: "running";
   prompt: string;
 }
 
 export interface DoneResult {
-  taskId: string;
+  task: Task;
   status: "done";
   output: Record<string, string>;
   next?: {
@@ -30,7 +30,7 @@ export interface DoneResult {
 }
 
 export interface RejectResult {
-  taskId: string;
+  task: Task;
   status: "rejected";
   reason: string;
 }
@@ -86,7 +86,7 @@ export function runWorkflow(
   });
 
   const prompt = buildWorkerPrompt(workflow, params.inputs, task.id, params.transcriptPath);
-  return ok({ taskId: task.id, status: "running" as const, prompt });
+  return ok({ task, status: "running" as const, prompt });
 }
 
 export function completeTask(
@@ -115,7 +115,7 @@ export function completeTask(
 
   return store.complete(params.taskId, params.output).map(() => {
     const result: DoneResult = {
-      taskId: params.taskId,
+      task,
       status: "done",
       output: params.output,
     };
@@ -162,8 +162,8 @@ export function rejectTask(
 ): Result<RejectResult, string> {
   return store
     .reject(params.taskId, params.reason)
-    .map(() => ({
-      taskId: params.taskId,
+    .map((task) => ({
+      task,
       status: "rejected" as const,
       reason: params.reason,
     }));

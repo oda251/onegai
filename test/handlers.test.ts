@@ -91,7 +91,7 @@ describe("runWorkflow", () => {
     const data = result._unsafeUnwrap();
     expect(data.status).toBe("running");
     expect(data.prompt).toContain("JWT");
-    expect(data.taskId).toBeDefined();
+    expect(data.task.id).toBeDefined();
   });
 
   it("errors on unknown workflow type", () => {
@@ -152,7 +152,7 @@ describe("completeTask", () => {
       title: "Research",
       inputs: { topic: { body: "JWT" } },
     });
-    const { taskId } = run._unsafeUnwrap();
+    const { task: { id: taskId } } = run._unsafeUnwrap();
 
     const result = completeTask(workflows, store, {
       taskId,
@@ -174,7 +174,7 @@ describe("completeTask", () => {
       title: "Add auth",
       inputs: { what: { body: "auth" }, where: { body: "src/" } },
     });
-    const { taskId } = run._unsafeUnwrap();
+    const { task: { id: taskId } } = run._unsafeUnwrap();
 
     const result = completeTask(workflows, store, {
       taskId,
@@ -206,7 +206,7 @@ describe("completeTask", () => {
       title: "Add auth",
       inputs: { what: { body: "auth" }, where: { body: "src/" } },
     });
-    const { taskId } = run._unsafeUnwrap();
+    const { task: { id: taskId } } = run._unsafeUnwrap();
 
     const result = completeTask(workflows, store, {
       taskId,
@@ -229,7 +229,7 @@ describe("completeTask", () => {
       title: "Test",
       inputs: { what: { body: "auth" }, where: { body: "src/" } },
     });
-    const { taskId } = run._unsafeUnwrap();
+    const { task: { id: taskId } } = run._unsafeUnwrap();
 
     const result = completeTask(workflows, store, {
       taskId,
@@ -248,7 +248,7 @@ describe("completeTask", () => {
       title: "Research",
       inputs: { topic: { body: "JWT" } },
     });
-    const { taskId } = run._unsafeUnwrap();
+    const { task: { id: taskId } } = run._unsafeUnwrap();
 
     // Empty output is fine when there's no next chain
     const result = completeTask(workflows, store, {
@@ -268,7 +268,7 @@ describe("completeTask", () => {
       title: "T",
       inputs: { topic: { body: "test" } },
     });
-    const { taskId } = run._unsafeUnwrap();
+    const { task: { id: taskId } } = run._unsafeUnwrap();
     completeTask(workflows, store, { taskId, output: {} });
 
     const result = completeTask(workflows, store, { taskId, output: {} });
@@ -386,11 +386,11 @@ describe("concurrent tasks", () => {
     })._unsafeUnwrap();
 
     // Complete first, reject second
-    completeTask(workflows, store, { taskId: run1.taskId, output: { result: "done A" } });
-    rejectTask(store, { taskId: run2.taskId, reason: "bad topic" });
+    completeTask(workflows, store, { taskId: run1.task.id, output: { result: "done A" } });
+    rejectTask(store, { taskId: run2.task.id, reason: "bad topic" });
 
-    expect(store.get(run1.taskId)?.status).toBe("done");
-    expect(store.get(run2.taskId)?.status).toBe("rejected");
+    expect(store.get(run1.task.id)?.status).toBe("done");
+    expect(store.get(run2.task.id)?.status).toBe("rejected");
     expect(store.getRunning()).toHaveLength(0);
   });
 });

@@ -58,6 +58,29 @@ const RegisterTranscriptArgsSchema = v.object({
   path: v.pipe(v.string(), v.minLength(1)),
 });
 
+// --- MCP DTOs (what callers see) ---
+
+interface TaskRef {
+  taskId: string;
+  title: string;
+}
+
+interface RunResponse extends TaskRef {
+  status: "running";
+  prompt: string;
+}
+
+interface DoneResponse extends TaskRef {
+  status: "done";
+  output: Record<string, string>;
+  next?: { taskId: string; status: "running"; type: string; prompt: string };
+}
+
+interface RejectResponse extends TaskRef {
+  status: "rejected";
+  reason: string;
+}
+
 // --- MCP response helpers ---
 
 function textResponse(text: string) {
@@ -219,8 +242,12 @@ function configureMcpServer(server: Server, ctx: McpContext) {
         if (!parsed.success) return validationError(parsed.issues);
         return runWorkflow(workflows, store, { ...parsed.output, caller: callerId, transcriptPath: transcriptStore.path }).match(
           (data) => {
-            if (spawnWorker) spawnWorker(data.prompt, data.taskId);
-            return jsonResponse(data);
+            if (spawnWorker) spawnWorker(data.prompt, data.task.id);
+            const dto: RunResponse = {
+              taskId: data.task.id, title: data.task.title,
+              status: data.status, prompt: data.prompt,
+            };
+            return jsonResponse(dto);
           },
           (e) => errorResponse(e),
         );
@@ -231,11 +258,14 @@ function configureMcpServer(server: Server, ctx: McpContext) {
         if (!parsed.success) return validationError(parsed.issues);
         return completeTask(workflows, store, parsed.output, transcriptStore.path).match(
           (data) => {
-            const task = store.get(data.taskId);
-            if (!data.next && task) notifyTaskSettled(notifiers, store, task, "task.done", { output: data.output });
+            if (!data.next) notifyTaskSettled(notifiers, store, data.task, "task.done", { output: data.output });
             if (data.next && spawnWorker) spawnWorker(data.next.prompt, data.next.taskId);
-            if (task) notifyIfGroupSettled(notifiers, store, task);
-            return jsonResponse(data);
+            notifyIfGroupSettled(notifiers, store, data.task);
+            const dto: DoneResponse = {
+              taskId: data.task.id, title: data.task.title,
+              status: data.status, output: data.output, next: data.next,
+            };
+            return jsonResponse(dto);
           },
           (e) => errorResponse(e),
         );
@@ -246,12 +276,13 @@ function configureMcpServer(server: Server, ctx: McpContext) {
         if (!parsed.success) return validationError(parsed.issues);
         return rejectTask(store, parsed.output).match(
           (data) => {
-            const task = store.get(data.taskId);
-            if (task) {
-              notifyTaskSettled(notifiers, store, task, "task.rejected", { reason: data.reason });
-              notifyIfGroupSettled(notifiers, store, task);
-            }
-            return jsonResponse(data);
+            notifyTaskSettled(notifiers, store, data.task, "task.rejected", { reason: data.reason });
+            notifyIfGroupSettled(notifiers, store, data.task);
+            const dto: RejectResponse = {
+              taskId: data.task.id, title: data.task.title,
+              status: data.status, reason: data.reason,
+            };
+            return jsonResponse(dto);
           },
           (e) => errorResponse(e),
         );

@@ -92,11 +92,36 @@ function notifyIfGroupSettled(
   notifyCaller(notifiers, task.caller, "group.done", payload);
 }
 
-const TOOL_DEFINITIONS = [
+const DONE_TOOL = {
+  name: "done",
+  description: "Complete a running task with output values",
+  inputSchema: {
+    type: "object" as const,
+    properties: {
+      taskId: { type: "string", description: "Task ID to complete" },
+      output: { type: "object", description: "Output key-value pairs" },
+    },
+    required: ["taskId", "output"],
+  },
+};
+
+const REJECT_TOOL = {
+  name: "reject",
+  description: "Reject a running task with a reason",
+  inputSchema: {
+    type: "object" as const,
+    properties: {
+      taskId: { type: "string", description: "Task ID to reject" },
+      reason: { type: "string", description: "Rejection reason" },
+    },
+    required: ["taskId", "reason"],
+  },
+};
+
+const MAIN_TOOLS = [
   {
     name: "workflows",
-    description:
-      "List available workflow types with their descriptions and required inputs",
+    description: "List available workflow types with their descriptions and required inputs",
     inputSchema: { type: "object" as const, properties: {} },
   },
   {
@@ -113,30 +138,8 @@ const TOOL_DEFINITIONS = [
       required: ["type", "title", "inputs"],
     },
   },
-  {
-    name: "done",
-    description: "Complete a running task with output values",
-    inputSchema: {
-      type: "object" as const,
-      properties: {
-        taskId: { type: "string", description: "Task ID to complete" },
-        output: { type: "object", description: "Output key-value pairs" },
-      },
-      required: ["taskId", "output"],
-    },
-  },
-  {
-    name: "reject",
-    description: "Reject a running task with a reason",
-    inputSchema: {
-      type: "object" as const,
-      properties: {
-        taskId: { type: "string", description: "Task ID to reject" },
-        reason: { type: "string", description: "Rejection reason" },
-      },
-      required: ["taskId", "reason"],
-    },
-  },
+  DONE_TOOL,
+  REJECT_TOOL,
   {
     name: "status",
     description: "Get status of tasks",
@@ -160,8 +163,13 @@ const TOOL_DEFINITIONS = [
   },
 ];
 
+const WORKER_TOOLS = [DONE_TOOL, REJECT_TOOL];
+
+
+type McpRole = "main" | "worker";
 
 interface McpContext {
+  role: McpRole;
   workflows: Map<string, Workflow>;
   store: TaskStore;
   callerId: string;
@@ -172,9 +180,10 @@ interface McpContext {
 }
 
 function configureMcpServer(server: Server, ctx: McpContext) {
-  const { workflows, store, callerId, notifiers, transcriptStore, spawnWorker, verifyEvidence } = ctx;
+  const { role, workflows, store, callerId, notifiers, transcriptStore, spawnWorker, verifyEvidence } = ctx;
+  const tools = role === "worker" ? WORKER_TOOLS : MAIN_TOOLS;
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: TOOL_DEFINITIONS,
+    tools,
   }));
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
@@ -304,7 +313,7 @@ export function createServer(workflowsDir: string) {
   });
 
   const transcriptStore: { path?: string } = {};
-  configureMcpServer(server, { workflows, store, callerId, notifiers, transcriptStore });
+  configureMcpServer(server, { role: "main", workflows, store, callerId, notifiers, transcriptStore });
   return { server, store, workflows };
 }
 
@@ -327,7 +336,7 @@ export async function startServer(config: Pick<ServerConfig, "workflowsDir" | "p
     { transport: WebStandardStreamableHTTPServerTransport; server: Server }
   >();
 
-  function createSession(): WebStandardStreamableHTTPServerTransport {
+  function createSession(role: McpRole): WebStandardStreamableHTTPServerTransport {
     const callerId = crypto.randomUUID();
     const server = newMcpServer();
 
@@ -351,33 +360,21 @@ export async function startServer(config: Pick<ServerConfig, "workflowsDir" | "p
         .catch(() => {});
     });
 
-    configureMcpServer(server, { workflows, store, callerId, notifiers, transcriptStore, spawnWorker, verifyEvidence });
+    configureMcpServer(server, { role, workflows, store, callerId, notifiers, transcriptStore, spawnWorker, verifyEvidence });
     server.connect(transport);
 
     return transport;
   }
 
-  const httpServer = Bun.serve({
-    port: fullConfig.port,
-    hostname: fullConfig.hostname,
-    async fetch(req) {
-      const url = new URL(req.url);
-      if (url.pathname !== defaults.mcpPath) {
-        return new Response("Not Found", { status: 404 });
-      }
+  function handleMcp(req: Request, role: McpRole): Response | Promise<Response> {
+    const sessionId = req.headers.get("mcp-session-id");
+    const existing = sessionId ? sessions.get(sessionId) : undefined;
 
-      const sessionId = req.headers.get("mcp-session-id");
-      const existing = sessionId ? sessions.get(sessionId) : undefined;
+    if (existing) return existing.transport.handleRequest(req);
+    if (sessionId) return new Response("Session not found", { status: 404 });
 
-      if (existing) {
-        return existing.transport.handleRequest(req);
-      }
-
-      if (sessionId) {
-        return new Response("Session not found", { status: 404 });
-      }
-
-      if (req.method === "POST") {
+    if (req.method === "POST") {
+      return (async () => {
         let body: unknown;
         try {
           body = await req.json();
@@ -385,16 +382,32 @@ export async function startServer(config: Pick<ServerConfig, "workflowsDir" | "p
           return new Response("Invalid JSON", { status: 400 });
         }
         if (isInitializeRequest(body)) {
-          const transport = createSession();
+          const transport = createSession(role);
           return transport.handleRequest(req, { parsedBody: body });
         }
-      }
+        return new Response("Bad Request", { status: 400 });
+      })();
+    }
 
-      return new Response("Bad Request", { status: 400 });
+    return new Response("Bad Request", { status: 400 });
+  }
+
+  const mainPath = defaults.mcpPath;
+  const workerPath = `${defaults.mcpPath}/worker`;
+
+  const httpServer = Bun.serve({
+    port: fullConfig.port,
+    hostname: fullConfig.hostname,
+    fetch(req) {
+      const url = new URL(req.url);
+      if (url.pathname === workerPath) return handleMcp(req, "worker");
+      if (url.pathname === mainPath) return handleMcp(req, "main");
+      return new Response("Not Found", { status: 404 });
     },
   });
 
-  console.log(`[sidekick] listening on ${serverUrl(fullConfig)}`);
+  console.log(`[sidekick] main:   ${serverUrl(fullConfig)}`);
+  console.log(`[sidekick] worker: ${serverUrl(fullConfig)}/worker`);
 
   return function stop() {
     for (const { transport } of sessions.values()) {

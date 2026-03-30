@@ -1,10 +1,12 @@
 import { nanoid } from "nanoid";
+import { eq } from "drizzle-orm";
 import { ok, err, type Result } from "neverthrow";
+import { tasks } from "./db/schema.js";
+import type { Db } from "./db/index.js";
 import type { Task, InputValue } from "./types.js";
 
 export class TaskStore {
-  private tasks = new Map<string, Task>();
-  private groupIndex = new Map<string, Set<string>>();
+  constructor(private db: Db) {}
 
   create(params: {
     type: string;
@@ -15,35 +17,34 @@ export class TaskStore {
     group?: string;
     caller?: string;
   }): Task {
-    const task: Task = {
-      id: nanoid(12),
+    const id = nanoid(12);
+    this.db.insert(tasks).values({
+      id,
       type: params.type,
       title: params.title,
       inputs: params.inputs,
       status: "running",
-      next: params.next,
-      chainParent: params.chainParent,
-      group: params.group,
-      caller: params.caller,
-    };
-    this.tasks.set(task.id, task);
-    if (task.group) {
-      let ids = this.groupIndex.get(task.group);
-      if (!ids) {
-        ids = new Set();
-        this.groupIndex.set(task.group, ids);
-      }
-      ids.add(task.id);
-    }
+      next: params.next ?? null,
+      chainParent: params.chainParent ?? null,
+      group: params.group ?? null,
+      caller: params.caller ?? null,
+    }).run();
+    const task = this.get(id);
+    if (!task) throw new Error(`Failed to create task ${id}`);
     return task;
   }
 
   get(id: string): Task | undefined {
-    return this.tasks.get(id);
+    const row = this.db.select().from(tasks).where(eq(tasks.id, id)).get();
+    return row ? toTask(row) : undefined;
   }
 
   complete(id: string, output: Record<string, string>): Result<Task, string> {
     return this.ensureRunning(id).map((task) => {
+      this.db.update(tasks)
+        .set({ status: "done", output })
+        .where(eq(tasks.id, id))
+        .run();
       task.status = "done";
       task.output = output;
       return task;
@@ -52,6 +53,10 @@ export class TaskStore {
 
   reject(id: string, reason: string): Result<Task, string> {
     return this.ensureRunning(id).map((task) => {
+      this.db.update(tasks)
+        .set({ status: "rejected", reason })
+        .where(eq(tasks.id, id))
+        .run();
       task.status = "rejected";
       task.reason = reason;
       return task;
@@ -59,33 +64,38 @@ export class TaskStore {
   }
 
   list(): Task[] {
-    return [...this.tasks.values()];
+    return this.db.select().from(tasks).all().map(toTask);
   }
 
   getRunning(): Task[] {
-    const result: Task[] = [];
-    for (const t of this.tasks.values()) {
-      if (t.status === "running") result.push(t);
-    }
-    return result;
+    return this.db.select().from(tasks).where(eq(tasks.status, "running")).all().map(toTask);
   }
 
   getByGroup(groupId: string): Task[] {
-    const ids = this.groupIndex.get(groupId);
-    if (!ids) return [];
-    const result: Task[] = [];
-    for (const id of ids) {
-      const task = this.tasks.get(id);
-      if (task) result.push(task);
-    }
-    return result;
+    return this.db.select().from(tasks).where(eq(tasks.group, groupId)).all().map(toTask);
   }
 
   private ensureRunning(id: string): Result<Task, string> {
-    const task = this.tasks.get(id);
+    const task = this.get(id);
     if (!task) return err(`Task not found: ${id}`);
     if (task.status !== "running")
       return err(`Task ${id} is not running (status: ${task.status})`);
     return ok(task);
   }
+}
+
+function toTask(row: typeof tasks.$inferSelect): Task {
+  return {
+    id: row.id,
+    type: row.type,
+    title: row.title,
+    inputs: row.inputs as Record<string, InputValue>,
+    status: row.status as Task["status"],
+    output: row.output ?? undefined,
+    reason: row.reason ?? undefined,
+    next: row.next ?? undefined,
+    chainParent: row.chainParent ?? undefined,
+    group: row.group ?? undefined,
+    caller: row.caller ?? undefined,
+  };
 }

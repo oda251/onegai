@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { TaskStore } from "../src/task-store.js";
+import { createTestStore } from "./helpers.js";
 import {
   listWorkflows,
   runWorkflow,
@@ -80,7 +80,7 @@ describe("listWorkflows", () => {
 
 describe("runWorkflow", () => {
   it("creates task and returns prompt", () => {
-    const store = new TaskStore();
+    const store = createTestStore();
     const result = runWorkflow(makeWorkflows(), store, {
       type: "dev/impl",
       title: "Add auth",
@@ -95,7 +95,7 @@ describe("runWorkflow", () => {
   });
 
   it("errors on unknown workflow type", () => {
-    const store = new TaskStore();
+    const store = createTestStore();
     const result = runWorkflow(makeWorkflows(), store, {
       type: "unknown/type",
       title: "Test",
@@ -107,7 +107,7 @@ describe("runWorkflow", () => {
   });
 
   it("errors on internal workflow", () => {
-    const store = new TaskStore();
+    const store = createTestStore();
     const result = runWorkflow(makeWorkflows(), store, {
       type: "dev/review",
       title: "Test",
@@ -119,7 +119,7 @@ describe("runWorkflow", () => {
   });
 
   it("errors on missing required inputs", () => {
-    const store = new TaskStore();
+    const store = createTestStore();
     const result = runWorkflow(makeWorkflows(), store, {
       type: "dev/impl",
       title: "Test",
@@ -131,7 +131,7 @@ describe("runWorkflow", () => {
   });
 
   it("errors on empty string input value", () => {
-    const store = new TaskStore();
+    const store = createTestStore();
     const result = runWorkflow(makeWorkflows(), store, {
       type: "dev/impl",
       title: "Test",
@@ -146,7 +146,7 @@ describe("runWorkflow", () => {
 describe("completeTask", () => {
   it("completes a task without next chain", () => {
     const workflows = makeWorkflows();
-    const store = new TaskStore();
+    const store = createTestStore();
     const run = runWorkflow(workflows, store, {
       type: "research/gather",
       title: "Research",
@@ -168,7 +168,7 @@ describe("completeTask", () => {
 
   it("auto-starts next step on completion", () => {
     const workflows = makeWorkflows();
-    const store = new TaskStore();
+    const store = createTestStore();
     const run = runWorkflow(workflows, store, {
       type: "dev/impl",
       title: "Add auth",
@@ -200,7 +200,7 @@ describe("completeTask", () => {
 
   it("rejects done with missing required outputs", () => {
     const workflows = makeWorkflows();
-    const store = new TaskStore();
+    const store = createTestStore();
     const run = runWorkflow(workflows, store, {
       type: "dev/impl",
       title: "Add auth",
@@ -223,7 +223,7 @@ describe("completeTask", () => {
 
   it("rejects done with empty output value", () => {
     const workflows = makeWorkflows();
-    const store = new TaskStore();
+    const store = createTestStore();
     const run = runWorkflow(workflows, store, {
       type: "dev/impl",
       title: "Test",
@@ -242,7 +242,7 @@ describe("completeTask", () => {
 
   it("does not validate outputs when no next chain", () => {
     const workflows = makeWorkflows();
-    const store = new TaskStore();
+    const store = createTestStore();
     const run = runWorkflow(workflows, store, {
       type: "research/gather",
       title: "Research",
@@ -262,7 +262,7 @@ describe("completeTask", () => {
 
   it("errors on already-completed task", () => {
     const workflows = makeWorkflows();
-    const store = new TaskStore();
+    const store = createTestStore();
     const run = runWorkflow(workflows, store, {
       type: "research/gather",
       title: "T",
@@ -279,7 +279,7 @@ describe("completeTask", () => {
 
   it("errors on nonexistent task", () => {
     const workflows = makeWorkflows();
-    const store = new TaskStore();
+    const store = createTestStore();
     const result = completeTask(workflows, store, {
       taskId: "no-such-id",
       output: {},
@@ -292,7 +292,7 @@ describe("completeTask", () => {
 
 describe("rejectTask", () => {
   it("rejects a running task", () => {
-    const store = new TaskStore();
+    const store = createTestStore();
     const task = store.create({ type: "dev/impl", title: "T", inputs: {} });
 
     const result = rejectTask(store, {
@@ -307,7 +307,7 @@ describe("rejectTask", () => {
   });
 
   it("errors on already-done task", () => {
-    const store = new TaskStore();
+    const store = createTestStore();
     const task = store.create({ type: "dev/impl", title: "T", inputs: {} });
     store.complete(task.id, {});
 
@@ -321,7 +321,7 @@ describe("rejectTask", () => {
   });
 
   it("errors on nonexistent task", () => {
-    const store = new TaskStore();
+    const store = createTestStore();
     const result = rejectTask(store, {
       taskId: "no-such-id",
       reason: "whatever",
@@ -334,7 +334,7 @@ describe("rejectTask", () => {
 
 describe("getStatus", () => {
   it("returns all tasks when no taskId", () => {
-    const store = new TaskStore();
+    const store = createTestStore();
     store.create({ type: "dev/impl", title: "A", inputs: {} });
     store.create({ type: "dev/impl", title: "B", inputs: {} });
 
@@ -344,14 +344,14 @@ describe("getStatus", () => {
   });
 
   it("returns empty array when no tasks", () => {
-    const store = new TaskStore();
+    const store = createTestStore();
     const result = getStatus(store);
     expect(result.isOk()).toBe(true);
     expect(result._unsafeUnwrap()).toEqual([]);
   });
 
   it("returns specific task by id", () => {
-    const store = new TaskStore();
+    const store = createTestStore();
     const task = store.create({ type: "dev/impl", title: "A", inputs: {} });
 
     const result = getStatus(store, task.id);
@@ -361,7 +361,7 @@ describe("getStatus", () => {
   });
 
   it("errors on unknown task id", () => {
-    const store = new TaskStore();
+    const store = createTestStore();
     const result = getStatus(store, "nonexistent");
     expect(result.isErr()).toBe(true);
     expect(result._unsafeUnwrapErr()).toContain("not found");
@@ -371,7 +371,7 @@ describe("getStatus", () => {
 describe("concurrent tasks", () => {
   it("handles multiple running tasks independently", () => {
     const workflows = makeWorkflows();
-    const store = new TaskStore();
+    const store = createTestStore();
 
     const run1 = runWorkflow(workflows, store, {
       type: "research/gather",

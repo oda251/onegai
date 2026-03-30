@@ -8,6 +8,7 @@ import {
 import * as v from "valibot";
 import { loadWorkflows } from "./workflow-loader.js";
 import { TaskStore } from "./task-store.js";
+import { createDb } from "./db/index.js";
 import {
   listWorkflows,
   runWorkflow,
@@ -20,6 +21,7 @@ import {
 import type { Workflow, Task } from "./types.js";
 import { createWorkerSpawner, type SpawnWorkerFn } from "./worker.js";
 import { defaults, serverUrl, type ServerConfig } from "./config.js";
+import type { RunResponse, DoneResponse, RejectResponse } from "./db/dto.js";
 
 // --- Valibot schemas (input validation) ---
 
@@ -57,29 +59,6 @@ const RejectArgsSchema = v.object({
 const RegisterTranscriptArgsSchema = v.object({
   path: v.pipe(v.string(), v.minLength(1)),
 });
-
-// --- MCP DTOs (what callers see) ---
-
-interface TaskRef {
-  taskId: string;
-  title: string;
-}
-
-interface RunResponse extends TaskRef {
-  status: "running";
-  prompt: string;
-}
-
-interface DoneResponse extends TaskRef {
-  status: "done";
-  output: Record<string, string>;
-  next?: { taskId: string; status: "running"; type: string; prompt: string };
-}
-
-interface RejectResponse extends TaskRef {
-  status: "rejected";
-  reason: string;
-}
 
 // --- MCP response helpers ---
 
@@ -322,7 +301,7 @@ function createServerCore(workflowsDir: string) {
   for (const e of errors) {
     console.error(`[sidekick] workflow error: ${e.file}: ${e.message}`);
   }
-  return { workflows, store: new TaskStore() };
+  return { workflows, store: new TaskStore(createDb()) };
 }
 
 // --- Exports ---

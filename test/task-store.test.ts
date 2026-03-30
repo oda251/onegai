@@ -1,9 +1,9 @@
 import { describe, it, expect } from "bun:test";
-import { TaskStore } from "../src/task-store.js";
+import { createTestStore } from "./helpers.js";
 
 describe("TaskStore", () => {
   it("creates a task", () => {
-    const store = new TaskStore();
+    const store = createTestStore();
     const task = store.create({
       type: "dev/impl",
       title: "Implement auth",
@@ -17,7 +17,7 @@ describe("TaskStore", () => {
   });
 
   it("completes a task", () => {
-    const store = new TaskStore();
+    const store = createTestStore();
     const task = store.create({
       type: "dev/impl",
       title: "Test",
@@ -34,7 +34,7 @@ describe("TaskStore", () => {
   });
 
   it("rejects a task", () => {
-    const store = new TaskStore();
+    const store = createTestStore();
     const task = store.create({
       type: "dev/impl",
       title: "Test",
@@ -49,7 +49,7 @@ describe("TaskStore", () => {
   });
 
   it("returns error on completing non-running task", () => {
-    const store = new TaskStore();
+    const store = createTestStore();
     const task = store.create({
       type: "dev/impl",
       title: "Test",
@@ -63,21 +63,21 @@ describe("TaskStore", () => {
   });
 
   it("returns error on unknown task id", () => {
-    const store = new TaskStore();
+    const store = createTestStore();
     const result = store.complete("nonexistent", {});
     expect(result.isErr()).toBe(true);
     expect(result._unsafeUnwrapErr()).toContain("not found");
   });
 
   it("returns error on rejecting unknown task id", () => {
-    const store = new TaskStore();
+    const store = createTestStore();
     const result = store.reject("nonexistent", "reason");
     expect(result.isErr()).toBe(true);
     expect(result._unsafeUnwrapErr()).toContain("not found");
   });
 
   it("returns error on rejecting already-rejected task", () => {
-    const store = new TaskStore();
+    const store = createTestStore();
     const task = store.create({
       type: "dev/impl",
       title: "Test",
@@ -91,7 +91,7 @@ describe("TaskStore", () => {
   });
 
   it("stores then and chainParent", () => {
-    const store = new TaskStore();
+    const store = createTestStore();
     const task = store.create({
       type: "dev/impl",
       title: "Test",
@@ -105,14 +105,14 @@ describe("TaskStore", () => {
   });
 
   it("generates unique IDs", () => {
-    const store = new TaskStore();
+    const store = createTestStore();
     const a = store.create({ type: "dev/impl", title: "A", inputs: {} });
     const b = store.create({ type: "dev/impl", title: "B", inputs: {} });
     expect(a.id).not.toBe(b.id);
   });
 
   it("lists tasks", () => {
-    const store = new TaskStore();
+    const store = createTestStore();
     store.create({ type: "dev/impl", title: "A", inputs: {} });
     store.create({ type: "dev/impl", title: "B", inputs: {} });
 
@@ -120,7 +120,7 @@ describe("TaskStore", () => {
   });
 
   it("filters running tasks", () => {
-    const store = new TaskStore();
+    const store = createTestStore();
     const a = store.create({ type: "dev/impl", title: "A", inputs: {} });
     store.create({ type: "dev/impl", title: "B", inputs: {} });
     store.complete(a.id, {});

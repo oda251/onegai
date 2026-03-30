@@ -3,9 +3,10 @@
 import { resolvePort, resolveWorkflowsDir } from "./config.js";
 import { lint } from "./workflow-loader.js";
 import { startServer } from "./server.js";
+import { setup } from "./setup.js";
 import { exhaustive } from "./types.js";
 
-const COMMANDS = ["serve", "lint"] as const;
+const COMMANDS = ["serve", "lint", "setup"] as const;
 type Command = (typeof COMMANDS)[number];
 
 const args = process.argv.slice(2);
@@ -29,6 +30,9 @@ if (!command) {
     }
     case "lint":
       runLint(resolveWorkflowsDir(args));
+      break;
+    case "setup":
+      setup(process.cwd());
       break;
     default:
       exhaustive(cmd);
@@ -54,5 +58,6 @@ function printUsage() {
 
 Commands:
   serve [--dir path] [--port N]   Start HTTP MCP server (default: 4312)
-  lint [--dir path]               Validate workflow definitions`);
+  lint [--dir path]               Validate workflow definitions
+  setup                           Install hooks and agent config into current project`);
 }

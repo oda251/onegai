@@ -184,3 +184,23 @@ export function getStatus(
   }
   return ok(store.list());
 }
+
+export function findRootTaskId(store: TaskStore, taskId: string): string {
+  let current = store.get(taskId);
+  while (current?.chainParent) {
+    const parent = store.get(current.chainParent);
+    if (!parent) break;
+    current = parent;
+  }
+  return current?.id ?? taskId;
+}
+
+export function getSettledGroup(
+  store: TaskStore,
+  task: { group?: string },
+): { group: string; tasks: Task[] } | undefined {
+  if (!task.group) return undefined;
+  const groupTasks = store.getByGroup(task.group);
+  if (groupTasks.some((t) => t.status === "running")) return undefined;
+  return { group: task.group, tasks: groupTasks };
+}

@@ -14,6 +14,8 @@ import {
   completeTask,
   rejectTask,
   getStatus,
+  findRootTaskId,
+  getSettledGroup,
 } from "./handlers.js";
 import type { Workflow } from "./types.js";
 import { createWorkerSpawner, type SpawnWorkerFn } from "./worker.js";
@@ -74,19 +76,7 @@ function validationError(issues: v.BaseIssue<unknown>[]) {
   return errorResponse(`Invalid arguments: ${issues.map((i) => i.message).join("; ")}`);
 }
 
-// --- Helpers ---
-
-function findRootTaskId(store: TaskStore, taskId: string): string {
-  let current = store.get(taskId);
-  while (current?.chainParent) {
-    const parent = store.get(current.chainParent);
-    if (!parent) break;
-    current = parent;
-  }
-  return current?.id ?? taskId;
-}
-
-// --- Notification ---
+// --- Notification (shell: routes events to MCP sessions) ---
 
 type NotifyFn = (event: string, params: Record<string, unknown>) => void;
 
@@ -99,24 +89,6 @@ function notifyCaller(
   if (!callerId) return;
   const fn = notifiers.get(callerId);
   if (fn) fn(event, params);
-}
-
-function checkGroupCompletion(
-  store: TaskStore,
-  task: { group?: string; caller?: string },
-  notifiers: Map<string, NotifyFn>,
-) {
-  if (!task.group) return;
-  const groupTasks = store.getByGroup(task.group);
-  if (groupTasks.some((t) => t.status === "running")) return;
-  notifyCaller(notifiers, task.caller, "group.done", {
-    group: task.group,
-    tasks: groupTasks.map((t) => ({
-      taskId: t.id,
-      title: t.title,
-      status: t.status,
-    })),
-  });
 }
 
 // --- MCP tool definitions ---
@@ -239,7 +211,15 @@ function configureMcpServer(
               });
             }
             if (data.next && spawnWorker) spawnWorker(data.next.prompt, data.next.taskId);
-            if (task) checkGroupCompletion(store, task, notifiers);
+            if (task) {
+              const settled = getSettledGroup(store, task);
+              if (settled) {
+                notifyCaller(notifiers, task.caller, "group.done", {
+                  group: settled.group,
+                  tasks: settled.tasks.map((t) => ({ taskId: t.id, title: t.title, status: t.status })),
+                });
+              }
+            }
             return jsonResponse(data);
           },
           (e) => errorResponse(e),
@@ -260,7 +240,13 @@ function configureMcpServer(
                 title: (rootTask ?? task).title,
                 reason: data.reason,
               });
-              checkGroupCompletion(store, task, notifiers);
+              const settled = getSettledGroup(store, task);
+              if (settled) {
+                notifyCaller(notifiers, task.caller, "group.done", {
+                  group: settled.group,
+                  tasks: settled.tasks.map((t) => ({ taskId: t.id, title: t.title, status: t.status })),
+                });
+              }
             }
             return jsonResponse(data);
           },

@@ -27,23 +27,35 @@ export function serverUrl(config: Pick<ServerConfig, "hostname" | "port">): stri
   return `http://${config.hostname}:${config.port}${defaults.mcpPath}`;
 }
 
+// --- Core: pure validation ---
+
+function parsePort(value: string, label: string): number | string {
+  const port = Number(value);
+  if (Number.isNaN(port) || port < 1 || port > 65535) {
+    return `Invalid ${label}: ${value}`;
+  }
+  return port;
+}
+
+// --- Shell: CLI argument resolution (reads args/env, may exit) ---
+
 export function resolvePort(args: string[]): number {
   const portIndex = args.indexOf("--port");
   if (portIndex !== -1 && args[portIndex + 1]) {
-    const port = Number(args[portIndex + 1]);
-    if (Number.isNaN(port) || port < 1 || port > 65535) {
-      console.error(`Invalid port: ${args[portIndex + 1]}`);
+    const result = parsePort(args[portIndex + 1], "port");
+    if (typeof result === "string") {
+      console.error(result);
       process.exit(1);
     }
-    return port;
+    return result;
   }
   if (env.SIDEKICK_PORT) {
-    const port = Number(env.SIDEKICK_PORT);
-    if (Number.isNaN(port) || port < 1 || port > 65535) {
-      console.error(`Invalid SIDEKICK_PORT: ${env.SIDEKICK_PORT}`);
+    const result = parsePort(env.SIDEKICK_PORT, "SIDEKICK_PORT");
+    if (typeof result === "string") {
+      console.error(result);
       process.exit(1);
     }
-    return port;
+    return result;
   }
   return defaults.port;
 }

@@ -4,6 +4,8 @@ import matter from "gray-matter";
 import * as v from "valibot";
 import type { Workflow, LintError } from "./types.js";
 
+// --- Core: pure parsing and validation ---
+
 const FrontmatterSchema = v.object({
   description: v.pipe(v.string(), v.minLength(1)),
   inputs: v.record(v.string(), v.string()),
@@ -12,71 +14,37 @@ const FrontmatterSchema = v.object({
   internal: v.optional(v.boolean(), false),
 });
 
-function discoverWorkflowFiles(workflowsDir: string): string[] {
-  let entries: ReturnType<typeof readdirSync>;
-  try {
-    entries = readdirSync(workflowsDir, { withFileTypes: true });
-  } catch {
-    return [];
+export function parseWorkflow(
+  type: string,
+  domain: string,
+  name: string,
+  raw: string,
+): { workflow: Workflow } | { error: LintError } {
+  const { data, content } = matter(raw);
+  const result = v.safeParse(FrontmatterSchema, data);
+
+  if (!result.success) {
+    const issues = result.issues.map((i) => i.message).join("; ");
+    return { error: { file: type, message: `Invalid frontmatter: ${issues}` } };
   }
 
-  const files: string[] = [];
-  for (const domain of entries) {
-    if (!domain.isDirectory()) continue;
-    const domainDir = join(workflowsDir, domain.name);
-    for (const file of readdirSync(domainDir, { withFileTypes: true })) {
-      if (file.isFile() && file.name.endsWith(".md")) {
-        files.push(join(domainDir, file.name));
-      }
-    }
-  }
-  return files;
-}
-
-export function loadWorkflows(workflowsDir: string): {
-  workflows: Map<string, Workflow>;
-  errors: LintError[];
-} {
-  const workflows = new Map<string, Workflow>();
-  const errors: LintError[] = [];
-  const files = discoverWorkflowFiles(workflowsDir);
-
-  for (const filePath of files) {
-    const domain = basename(dirname(filePath));
-    const name = basename(filePath, ".md");
-    const type = `${domain}/${name}`;
-
-    let raw: string;
-    try {
-      raw = readFileSync(filePath, "utf-8");
-    } catch {
-      errors.push({ file: type, message: "Failed to read file" });
-      continue;
-    }
-
-    const { data, content } = matter(raw);
-    const result = v.safeParse(FrontmatterSchema, data);
-
-    if (!result.success) {
-      const issues = result.issues.map((i) => i.message).join("; ");
-      errors.push({
-        file: type,
-        message: `Invalid frontmatter: ${issues}`,
-      });
-      continue;
-    }
-
-    workflows.set(type, {
+  return {
+    workflow: {
       type,
       domain,
       name,
       frontmatter: result.output,
       body: content.trim(),
       outputs: {},
-    });
-  }
+    },
+  };
+}
 
-  // Resolve next references and outputs
+export function resolveOutputs(
+  workflows: Map<string, Workflow>,
+): LintError[] {
+  const errors: LintError[] = [];
+
   for (const [type, workflow] of workflows) {
     const { next: nextName } = workflow.frontmatter;
     if (!nextName) continue;
@@ -102,11 +70,11 @@ export function loadWorkflows(workflowsDir: string): {
     }
   }
 
-  return { workflows, errors };
+  return errors;
 }
 
-export function lint(workflowsDir: string): LintError[] {
-  const { workflows, errors } = loadWorkflows(workflowsDir);
+export function lintWorkflows(workflows: Map<string, Workflow>): LintError[] {
+  const errors: LintError[] = [];
 
   // Circular chains
   for (const [type, workflow] of workflows) {
@@ -157,4 +125,65 @@ export function getRunnableWorkflows(
   return [...workflows.values()].filter(
     (w) => !w.frontmatter.internal,
   );
+}
+
+// --- Shell: file I/O ---
+
+function discoverWorkflowFiles(workflowsDir: string): string[] {
+  let entries: ReturnType<typeof readdirSync>;
+  try {
+    entries = readdirSync(workflowsDir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+
+  const files: string[] = [];
+  for (const domain of entries) {
+    if (!domain.isDirectory()) continue;
+    const domainDir = join(workflowsDir, domain.name);
+    for (const file of readdirSync(domainDir, { withFileTypes: true })) {
+      if (file.isFile() && file.name.endsWith(".md")) {
+        files.push(join(domainDir, file.name));
+      }
+    }
+  }
+  return files;
+}
+
+export function loadWorkflows(workflowsDir: string): {
+  workflows: Map<string, Workflow>;
+  errors: LintError[];
+} {
+  const workflows = new Map<string, Workflow>();
+  const errors: LintError[] = [];
+
+  for (const filePath of discoverWorkflowFiles(workflowsDir)) {
+    const domain = basename(dirname(filePath));
+    const name = basename(filePath, ".md");
+    const type = `${domain}/${name}`;
+
+    let raw: string;
+    try {
+      raw = readFileSync(filePath, "utf-8");
+    } catch {
+      errors.push({ file: type, message: "Failed to read file" });
+      continue;
+    }
+
+    const result = parseWorkflow(type, domain, name, raw);
+    if ("error" in result) {
+      errors.push(result.error);
+    } else {
+      workflows.set(type, result.workflow);
+    }
+  }
+
+  errors.push(...resolveOutputs(workflows));
+  return { workflows, errors };
+}
+
+export function lint(workflowsDir: string): LintError[] {
+  const { workflows, errors } = loadWorkflows(workflowsDir);
+  errors.push(...lintWorkflows(workflows));
+  return errors;
 }

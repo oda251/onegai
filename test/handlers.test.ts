@@ -84,7 +84,7 @@ describe("runWorkflow", () => {
     const result = runWorkflow(makeWorkflows(), store, {
       type: "dev/impl",
       title: "Add auth",
-      inputs: { what: { type: "evidenced", body:"JWT" }, where: { type: "evidenced", body:"src/" } },
+      inputs: { what: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"JWT" }, where: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"src/" } },
     });
 
     expect(result.isOk()).toBe(true);
@@ -111,7 +111,7 @@ describe("runWorkflow", () => {
     const result = runWorkflow(makeWorkflows(), store, {
       type: "dev/review",
       title: "Test",
-      inputs: { changes: { type: "evidenced", body:"file.ts" } },
+      inputs: { changes: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"file.ts" } },
     });
 
     expect(result.isErr()).toBe(true);
@@ -123,7 +123,7 @@ describe("runWorkflow", () => {
     const result = runWorkflow(makeWorkflows(), store, {
       type: "dev/impl",
       title: "Test",
-      inputs: { what: { type: "evidenced", body:"something" } },
+      inputs: { what: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"something" } },
     });
 
     expect(result.isErr()).toBe(true);
@@ -135,7 +135,7 @@ describe("runWorkflow", () => {
     const result = runWorkflow(makeWorkflows(), store, {
       type: "dev/impl",
       title: "Test",
-      inputs: { what: { type: "evidenced", body:"something" }, where: { type: "evidenced", body:"" } },
+      inputs: { what: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"something" }, where: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"" } },
     });
 
     expect(result.isErr()).toBe(true);
@@ -150,7 +150,7 @@ describe("completeTask", () => {
     const run = runWorkflow(workflows, store, {
       type: "research/gather",
       title: "Research",
-      inputs: { topic: { type: "evidenced", body:"JWT" } },
+      inputs: { topic: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"JWT" } },
     });
     const { task: { id: taskId } } = run._unsafeUnwrap();
 
@@ -172,7 +172,7 @@ describe("completeTask", () => {
     const run = runWorkflow(workflows, store, {
       type: "dev/impl",
       title: "Add auth",
-      inputs: { what: { type: "evidenced", body:"auth" }, where: { type: "evidenced", body:"src/" } },
+      inputs: { what: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"auth" }, where: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"src/" } },
     });
     const { task: { id: taskId } } = run._unsafeUnwrap();
 
@@ -204,7 +204,7 @@ describe("completeTask", () => {
     const run = runWorkflow(workflows, store, {
       type: "dev/impl",
       title: "Add auth",
-      inputs: { what: { type: "evidenced", body:"auth" }, where: { type: "evidenced", body:"src/" } },
+      inputs: { what: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"auth" }, where: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"src/" } },
     });
     const { task: { id: taskId } } = run._unsafeUnwrap();
 
@@ -227,7 +227,7 @@ describe("completeTask", () => {
     const run = runWorkflow(workflows, store, {
       type: "dev/impl",
       title: "Test",
-      inputs: { what: { type: "evidenced", body:"auth" }, where: { type: "evidenced", body:"src/" } },
+      inputs: { what: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"auth" }, where: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"src/" } },
     });
     const { task: { id: taskId } } = run._unsafeUnwrap();
 
@@ -246,7 +246,7 @@ describe("completeTask", () => {
     const run = runWorkflow(workflows, store, {
       type: "research/gather",
       title: "Research",
-      inputs: { topic: { type: "evidenced", body:"JWT" } },
+      inputs: { topic: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"JWT" } },
     });
     const { task: { id: taskId } } = run._unsafeUnwrap();
 
@@ -266,7 +266,7 @@ describe("completeTask", () => {
     const run = runWorkflow(workflows, store, {
       type: "research/gather",
       title: "T",
-      inputs: { topic: { type: "evidenced", body:"test" } },
+      inputs: { topic: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"test" } },
     });
     const { task: { id: taskId } } = run._unsafeUnwrap();
     completeTask(workflows, store, { taskId, output: {} });
@@ -376,13 +376,13 @@ describe("concurrent tasks", () => {
     const run1 = runWorkflow(workflows, store, {
       type: "research/gather",
       title: "Research A",
-      inputs: { topic: { type: "evidenced", body:"A" } },
+      inputs: { topic: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"A" } },
     })._unsafeUnwrap();
 
     const run2 = runWorkflow(workflows, store, {
       type: "research/gather",
       title: "Research B",
-      inputs: { topic: { type: "evidenced", body:"B" } },
+      inputs: { topic: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"B" } },
     })._unsafeUnwrap();
 
     // Complete first, reject second

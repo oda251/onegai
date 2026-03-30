@@ -19,7 +19,7 @@ export const PlainInputSchema = v.object({
 export const EvidencedInputSchema = v.object({
   type: v.literal("evidenced"),
   body: nonEmptyString,
-  citations: v.optional(v.array(CitationSchema)),
+  citations: v.pipe(v.array(CitationSchema), v.minLength(1)),
 });
 
 export const InputEntrySchema = v.union([PlainInputSchema, EvidencedInputSchema]);

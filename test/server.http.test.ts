@@ -108,7 +108,7 @@ describe("HTTP transport", () => {
       arguments: {
         type: "dev/impl",
         title: "Shared task",
-        inputs: { what: { type: "evidenced", body:"feature" }, where: { type: "evidenced", body:"src/" } },
+        inputs: { what: { type: "evidenced", citations: [{ type: "uri", source: "test.bin", excerpt: "test" }], body:"feature" }, where: { type: "evidenced", citations: [{ type: "uri", source: "test.bin", excerpt: "test" }], body:"src/" } },
       },
     });
     const { taskId } = parseText(runResult);
@@ -211,7 +211,7 @@ Research.`,
     const runResult = parseText(
       await client1.callTool({
         name: "run",
-        arguments: { type: "research/gather", title: "Test", inputs: { topic: { type: "evidenced", body:"X" } } },
+        arguments: { type: "research/gather", title: "Test", inputs: { topic: { type: "evidenced", citations: [{ type: "uri", source: "test.bin", excerpt: "test" }], body:"X" } } },
       }),
     );
 

@@ -205,7 +205,13 @@ function configureMcpServer(server: Server, ctx: McpContext) {
 
         return runWorkflow(workflows, store, { ...parsed.output, caller: callerId, transcriptPath: transcriptStore.path }).match(
           (data) => {
-            if (spawnWorker) spawnWorker(data.prompt, data.task.id);
+            if (spawnWorker) {
+              const wf = workflows.get(data.task.type);
+              spawnWorker(data.prompt, data.task.id, {
+                tools: wf?.frontmatter.tools,
+                permissionMode: wf?.frontmatter["permission-mode"],
+              });
+            }
             const dto: RunResponse = {
               taskId: data.task.id, title: data.task.title,
               status: data.status, prompt: data.prompt,
@@ -222,7 +228,13 @@ function configureMcpServer(server: Server, ctx: McpContext) {
         return completeTask(workflows, store, parsed.output, transcriptStore.path).match(
           (data) => {
             if (!data.next) notifyTaskResult(notifiers, store, data.task, "task.done", { output: data.output });
-            if (data.next && spawnWorker) spawnWorker(data.next.prompt, data.next.taskId);
+            if (data.next && spawnWorker) {
+              const nextWf = workflows.get(data.next.type);
+              spawnWorker(data.next.prompt, data.next.taskId, {
+                tools: nextWf?.frontmatter.tools,
+                permissionMode: nextWf?.frontmatter["permission-mode"],
+              });
+            }
             notifyIfGroupSettled(notifiers, store, data.task);
             const dto: DoneResponse = {
               taskId: data.task.id, title: data.task.title,

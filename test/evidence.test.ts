@@ -142,17 +142,6 @@ describe("createDefaultVerifier", () => {
     expect(results).toHaveLength(0);
   });
 
-  it("skips inputs without citations", async () => {
-    const results = await verify(
-      entry("what", {
-        type: "evidenced",
-        body: "test",
-      }),
-    );
-
-    expect(results).toHaveLength(0);
-  });
-
   it("reports missing transcript path", async () => {
     const results = await verify(
       entry("what", {

@@ -7,13 +7,13 @@ describe("TaskStore", () => {
     const task = store.create({
       type: "dev/impl",
       title: "Implement auth",
-      inputs: { what: { type: "evidenced", body:"JWT middleware" }, where: { type: "evidenced", body:"src/auth/" } },
+      inputs: { what: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"JWT middleware" }, where: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"src/auth/" } },
     });
 
     expect(task.id).toBeDefined();
     expect(task.status).toBe("running");
     expect(task.type).toBe("dev/impl");
-    expect(task.inputs.what).toEqual({ type: "evidenced", body:"JWT middleware" });
+    expect(task.inputs.what).toEqual({ type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"JWT middleware" });
   });
 
   it("completes a task", () => {
@@ -21,7 +21,7 @@ describe("TaskStore", () => {
     const task = store.create({
       type: "dev/impl",
       title: "Test",
-      inputs: { what: { type: "evidenced", body:"test" } },
+      inputs: { what: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"test" } },
     });
 
     const result = store.complete(task.id, {
@@ -38,7 +38,7 @@ describe("TaskStore", () => {
     const task = store.create({
       type: "dev/impl",
       title: "Test",
-      inputs: { what: { type: "evidenced", body:"test" } },
+      inputs: { what: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"test" } },
     });
 
     const result = store.reject(task.id, "Missing spec");
@@ -53,7 +53,7 @@ describe("TaskStore", () => {
     const task = store.create({
       type: "dev/impl",
       title: "Test",
-      inputs: { what: { type: "evidenced", body:"test" } },
+      inputs: { what: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"test" } },
     });
     store.complete(task.id, {});
 
@@ -81,7 +81,7 @@ describe("TaskStore", () => {
     const task = store.create({
       type: "dev/impl",
       title: "Test",
-      inputs: { what: { type: "evidenced", body:"test" } },
+      inputs: { what: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"test" } },
     });
     store.reject(task.id, "first");
 

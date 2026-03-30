@@ -5,11 +5,16 @@ export interface WorkerConfig {
   cwd: string;
 }
 
-export type SpawnWorkerFn = (prompt: string, taskId: string) => void;
+export interface WorkerOptions {
+  tools?: string[];
+  permissionMode?: string;
+}
+
+export type SpawnWorkerFn = (prompt: string, taskId: string, options?: WorkerOptions) => void;
 
 export function createWorkerSpawner(config: WorkerConfig): SpawnWorkerFn {
-  return (prompt: string, taskId: string) => {
-    runWorker(prompt, taskId, config).catch((err) => {
+  return (prompt: string, taskId: string, options?: WorkerOptions) => {
+    runWorker(prompt, taskId, config, options).catch((err) => {
       console.error(`[sidekick] worker ${taskId} failed:`, err);
     });
   };
@@ -19,6 +24,7 @@ async function runWorker(
   prompt: string,
   taskId: string,
   config: WorkerConfig,
+  options?: WorkerOptions,
 ): Promise<void> {
   console.log(`[sidekick] spawning worker for task ${taskId}`);
 
@@ -26,11 +32,11 @@ async function runWorker(
     prompt,
     options: {
       cwd: config.cwd,
-      allowedTools: ["Read", "Edit", "Write", "Bash", "Glob", "Grep"],
+      allowedTools: options?.tools,
       mcpServers: {
         sidekick: { url: config.serverUrl },
       },
-      permissionMode: "bypassPermissions",
+      permissionMode: (options?.permissionMode ?? "auto") as "auto",
       allowDangerouslySkipPermissions: true,
       maxTurns: 50,
     },

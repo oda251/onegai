@@ -12,6 +12,8 @@ const FrontmatterSchema = v.object({
   "confirm-before-run": v.optional(v.boolean(), false),
   next: v.optional(v.string()),
   internal: v.optional(v.boolean(), false),
+  tools: v.optional(v.array(v.string())),
+  "permission-mode": v.optional(v.string()),
 });
 
 export function parseWorkflow(

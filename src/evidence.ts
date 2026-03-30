@@ -18,7 +18,6 @@ export function createDefaultVerifier(): EvidenceVerifier {
     const results: VerificationResult[] = [];
 
     for (const { key, entry } of Object.values(inputs)) {
-      if (!entry.citations) continue;
       for (const citation of entry.citations) {
         if (!citation.excerpt) continue;
         results.push(await verifyCitation(key, citation, transcriptPath));

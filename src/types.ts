@@ -4,6 +4,8 @@ export interface WorkflowFrontmatter {
   "confirm-before-run": boolean;
   next?: string;
   internal: boolean;
+  tools?: string[];
+  "permission-mode"?: string;
 }
 
 export interface Workflow {
@@ -36,7 +38,7 @@ export interface PlainInput {
 export interface EvidencedInput {
   type: "evidenced";
   body: string;
-  citations?: Citation[];
+  citations: Citation[];
 }
 
 export type InputEntry = PlainInput | EvidencedInput;

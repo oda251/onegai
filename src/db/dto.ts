@@ -2,13 +2,9 @@ import * as v from "valibot";
 import { createSelectSchema } from "drizzle-valibot";
 import { tasks } from "./schema.js";
 
-// --- Base: derived from DB schema ---
-
 const taskSchema = createSelectSchema(tasks);
-
-// --- Shared field schemas ---
-
 const nonEmptyString = v.pipe(v.string(), v.minLength(1));
+const taskStatusSchema = v.picklist(["running", "done", "rejected"]);
 
 export const CitationSchema = v.union([
   v.object({ type: v.literal("transcript"), excerpt: v.string() }),
@@ -27,7 +23,10 @@ const ChainStepSchema = v.object({
   prompt: v.string(),
 });
 
-// --- MCP Tool Input DTOs ---
+export const TaskRefSchema = v.object({
+  taskId: taskSchema.entries.id,
+  title: taskSchema.entries.title,
+});
 
 export const RunArgsSchema = v.object({
   type: nonEmptyString,
@@ -54,13 +53,6 @@ export const RegisterTranscriptArgsSchema = v.object({
   path: nonEmptyString,
 });
 
-// --- MCP Tool Output DTOs (pick from DB schema + extend) ---
-
-export const TaskRefSchema = v.object({
-  taskId: taskSchema.entries.id,
-  title: taskSchema.entries.title,
-});
-
 export const RunResponseSchema = v.object({
   ...TaskRefSchema.entries,
   status: v.literal("running"),
@@ -80,32 +72,23 @@ export const RejectResponseSchema = v.object({
   reason: v.string(),
 });
 
-// --- Notification DTOs ---
-
 export const TaskDoneNotificationSchema = v.object({
-  taskId: taskSchema.entries.id,
-  title: taskSchema.entries.title,
+  ...TaskRefSchema.entries,
   output: v.record(v.string(), v.string()),
 });
 
 export const TaskRejectedNotificationSchema = v.object({
-  taskId: taskSchema.entries.id,
-  title: taskSchema.entries.title,
+  ...TaskRefSchema.entries,
   reason: v.string(),
-});
-
-const GroupTaskSummarySchema = v.object({
-  taskId: v.string(),
-  title: v.string(),
-  status: v.string(),
 });
 
 export const GroupDoneNotificationSchema = v.object({
   group: v.string(),
-  tasks: v.array(GroupTaskSummarySchema),
+  tasks: v.array(v.object({
+    ...TaskRefSchema.entries,
+    status: taskStatusSchema,
+  })),
 });
-
-// --- Inferred types ---
 
 export type RunArgs = v.InferOutput<typeof RunArgsSchema>;
 export type DoneArgs = v.InferOutput<typeof DoneArgsSchema>;

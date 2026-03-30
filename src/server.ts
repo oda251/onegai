@@ -30,12 +30,8 @@ import {
   type RunResponse,
   type DoneResponse,
   type RejectResponse,
-  type TaskDoneNotification,
-  type TaskRejectedNotification,
   type GroupDoneNotification,
 } from "./db/dto.js";
-
-// --- MCP response helpers ---
 
 function textResponse(text: string) {
   return { content: [{ type: "text" as const, text }] };
@@ -46,14 +42,12 @@ function errorResponse(text: string) {
 }
 
 function jsonResponse(data: unknown) {
-  return textResponse(JSON.stringify(data, null, 2));
+  return textResponse(JSON.stringify(data));
 }
 
 function validationError(issues: v.BaseIssue<unknown>[]) {
   return errorResponse(`Invalid arguments: ${issues.map((i) => i.message).join("; ")}`);
 }
-
-// --- Notification (shell: routes events to MCP sessions) ---
 
 type NotifyFn = (event: string, params: Record<string, unknown>) => void;
 
@@ -64,36 +58,23 @@ function notifyCaller(
   params: Record<string, unknown>,
 ) {
   if (!callerId) return;
-  const fn = notifiers.get(callerId);
-  if (fn) fn(event, params);
+  notifiers.get(callerId)?.(event, params);
 }
 
-function resolveRoot(store: TaskStore, task: Task): { id: string; title: string } {
+function notifyTaskResult(
+  notifiers: Map<string, NotifyFn>,
+  store: TaskStore,
+  task: Task,
+  event: string,
+  extra: Record<string, unknown>,
+) {
   const rootId = findRootTaskId(store, task.id);
   const rootTask = rootId !== task.id ? store.get(rootId) : task;
-  return { id: rootId, title: (rootTask ?? task).title };
-}
-
-function notifyTaskDone(
-  notifiers: Map<string, NotifyFn>,
-  store: TaskStore,
-  task: Task,
-  output: Record<string, string>,
-) {
-  const root = resolveRoot(store, task);
-  const payload: TaskDoneNotification = { taskId: root.id, title: root.title, output };
-  notifyCaller(notifiers, task.caller, "task.done", payload);
-}
-
-function notifyTaskRejected(
-  notifiers: Map<string, NotifyFn>,
-  store: TaskStore,
-  task: Task,
-  reason: string,
-) {
-  const root = resolveRoot(store, task);
-  const payload: TaskRejectedNotification = { taskId: root.id, title: root.title, reason };
-  notifyCaller(notifiers, task.caller, "task.rejected", payload);
+  notifyCaller(notifiers, task.caller, event, {
+    taskId: rootId,
+    title: (rootTask ?? task).title,
+    ...extra,
+  });
 }
 
 function notifyIfGroupSettled(
@@ -109,8 +90,6 @@ function notifyIfGroupSettled(
   };
   notifyCaller(notifiers, task.caller, "group.done", payload);
 }
-
-// --- MCP tool definitions ---
 
 const TOOL_DEFINITIONS = [
   {
@@ -180,7 +159,6 @@ const TOOL_DEFINITIONS = [
   },
 ];
 
-// --- MCP server wiring ---
 
 interface McpContext {
   workflows: Map<string, Workflow>;
@@ -225,7 +203,7 @@ function configureMcpServer(server: Server, ctx: McpContext) {
         if (!parsed.success) return validationError(parsed.issues);
         return completeTask(workflows, store, parsed.output, transcriptStore.path).match(
           (data) => {
-            if (!data.next) notifyTaskDone(notifiers, store, data.task, data.output);
+            if (!data.next) notifyTaskResult(notifiers, store, data.task, "task.done", { output: data.output });
             if (data.next && spawnWorker) spawnWorker(data.next.prompt, data.next.taskId);
             notifyIfGroupSettled(notifiers, store, data.task);
             const dto: DoneResponse = {
@@ -243,7 +221,7 @@ function configureMcpServer(server: Server, ctx: McpContext) {
         if (!parsed.success) return validationError(parsed.issues);
         return rejectTask(store, parsed.output).match(
           (data) => {
-            notifyTaskRejected(notifiers, store, data.task, data.reason);
+            notifyTaskResult(notifiers, store, data.task, "task.rejected", { reason: data.reason });
             notifyIfGroupSettled(notifiers, store, data.task);
             const dto: RejectResponse = {
               taskId: data.task.id, title: data.task.title,
@@ -292,7 +270,6 @@ function createServerCore(workflowsDir: string) {
   return { workflows, store: new TaskStore(createDb()) };
 }
 
-// --- Exports ---
 
 export function createServer(workflowsDir: string) {
   const { workflows, store } = createServerCore(workflowsDir);

@@ -8,31 +8,32 @@ export function buildWorkerPrompt(
 ): string {
   const sections: string[] = [];
 
-  sections.push(`## Intent Gate
-
-タスク内容と inputs を確認し、要件が不十分なら reject で差し戻す。
-reject: sidekick の reject ツール（taskId: "${taskId}", reason: "理由"）
-
-## 完了プロトコル
-
-done: sidekick の done ツール（taskId: "${taskId}"${formatOutputHint(workflow.outputs)}）
-reject: sidekick の reject ツール（taskId: "${taskId}", reason: "理由"）
-
-タスクID: ${taskId}`);
-
+  // タスク
   const inputLines = Object.entries(inputs)
     .map(([key, entry]) => formatInput(key, entry, transcriptPath))
     .join("\n\n");
-  sections.push(`## Inputs\n\n${inputLines}`);
+
+  let taskSection = `## タスク\n\nタスクID: ${taskId}\n\n### Inputs\n\n${inputLines}`;
 
   if (Object.keys(workflow.outputs).length > 0) {
     const outputLines = Object.entries(workflow.outputs)
       .map(([key, desc]) => `- **${key}**: ${desc}`)
       .join("\n");
-    sections.push(`## 完了時に返す Outputs\n\n${outputLines}`);
+    taskSection += `\n\n### Outputs（完了時に返す）\n\n${outputLines}`;
   }
 
+  sections.push(taskSection);
+
+  // ワークフロー
   sections.push(`## ワークフロー\n\n${workflow.body}`);
+
+  // プロトコル
+  sections.push(`## プロトコル
+
+inputs が不十分なら作業を始めずに reject する。
+
+- done(taskId: "${taskId}"${formatOutputHint(workflow.outputs)}) — 完了
+- reject(taskId: "${taskId}", reason: "理由") — 差し戻し`);
 
   return sections.join("\n\n");
 }
@@ -43,14 +44,12 @@ function formatInput(key: string, entry: InputEntry, transcriptPath?: string): s
   }
 
   const lines = [`- **${key}**: ${entry.body}`];
-  if (entry.citations && entry.citations.length > 0) {
-    for (const citation of entry.citations) {
-      const source = resolveSource(citation, transcriptPath);
-      if (citation.excerpt) {
-        lines.push(`  - 出典: \`${source}\` — "${citation.excerpt}"`);
-      } else {
-        lines.push(`  - 出典: \`${source}\``);
-      }
+  for (const citation of entry.citations) {
+    const source = resolveSource(citation, transcriptPath);
+    if (citation.excerpt) {
+      lines.push(`  - 出典: \`${source}\` — "${citation.excerpt}"`);
+    } else {
+      lines.push(`  - 出典: \`${source}\``);
     }
   }
   return lines.join("\n");

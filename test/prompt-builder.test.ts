@@ -2,6 +2,8 @@ import { describe, it, expect } from "bun:test";
 import { buildWorkerPrompt } from "../src/prompt-builder.js";
 import type { Workflow } from "../src/types.js";
 
+const citation = { type: "uri" as const, source: "test", excerpt: "test" };
+
 describe("buildWorkerPrompt", () => {
   it("builds prompt with inputs and workflow body", () => {
     const workflow: Workflow = {
@@ -21,7 +23,7 @@ describe("buildWorkerPrompt", () => {
 
     const prompt = buildWorkerPrompt(
       workflow,
-      { what: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"JWT middleware" }, where: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"src/auth/" } },
+      { what: { type: "evidenced", body: "JWT middleware", citations: [citation] }, where: { type: "evidenced", body: "src/auth/", citations: [citation] } },
       "task-123",
     );
 
@@ -30,11 +32,11 @@ describe("buildWorkerPrompt", () => {
     expect(prompt).toContain("src/auth/");
     expect(prompt).toContain("Write the code following TDD.");
     expect(prompt).toContain("changes");
-    expect(prompt).toContain("done ツール");
-    expect(prompt).toContain("reject ツール");
+    expect(prompt).toContain("done(");
+    expect(prompt).toContain("reject(");
   });
 
-  it("omits outputs section when no then chain", () => {
+  it("omits outputs section when no next chain", () => {
     const workflow: Workflow = {
       type: "dev/review",
       domain: "dev",
@@ -51,11 +53,11 @@ describe("buildWorkerPrompt", () => {
 
     const prompt = buildWorkerPrompt(
       workflow,
-      { changes: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"src/auth/middleware.ts" } },
+      { changes: { type: "evidenced", body: "src/auth/middleware.ts", citations: [citation] } },
       "task-456",
     );
 
-    expect(prompt).not.toContain("完了時に返す Outputs");
+    expect(prompt).not.toContain("Outputs");
     expect(prompt).toContain("src/auth/middleware.ts");
   });
 
@@ -74,13 +76,10 @@ describe("buildWorkerPrompt", () => {
       outputs: {},
     };
 
-    const prompt = buildWorkerPrompt(workflow, { what: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"x" } }, "abc-999");
+    const prompt = buildWorkerPrompt(workflow, { what: { type: "evidenced", body: "x", citations: [citation] } }, "abc-999");
 
-    // taskId appears in both done and reject instructions
-    const doneMatch = prompt.match(/done ツール.*abc-999/);
-    const rejectMatch = prompt.match(/reject ツール.*abc-999/);
-    expect(doneMatch).not.toBeNull();
-    expect(rejectMatch).not.toBeNull();
+    expect(prompt).toContain('done(taskId: "abc-999"');
+    expect(prompt).toContain('reject(taskId: "abc-999"');
   });
 
   it("formats multiple output keys in done hint", () => {
@@ -99,11 +98,11 @@ describe("buildWorkerPrompt", () => {
       outputs: { changes: "Changed files", summary: "Summary of changes" },
     };
 
-    const prompt = buildWorkerPrompt(workflow, { what: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"x" } }, "task-1");
+    const prompt = buildWorkerPrompt(workflow, { what: { type: "evidenced", body: "x", citations: [citation] } }, "task-1");
 
     expect(prompt).toContain("changes");
     expect(prompt).toContain("summary");
-    expect(prompt).toContain("完了時に返す Outputs");
+    expect(prompt).toContain("Outputs");
   });
 
   it("omits output hint in done instruction when no outputs", () => {
@@ -123,11 +122,35 @@ describe("buildWorkerPrompt", () => {
 
     const prompt = buildWorkerPrompt(
       workflow,
-      { changes: { type: "evidenced", citations: [{ type: "uri", source: "test", excerpt: "test" }], body:"file.ts" } },
+      { changes: { type: "evidenced", body: "file.ts", citations: [citation] } },
       "task-2",
     );
 
-    // done instruction should not contain "output:" hint
     expect(prompt).not.toContain("output:");
+  });
+
+  it("renders task section before workflow and protocol last", () => {
+    const workflow: Workflow = {
+      type: "dev/impl",
+      domain: "dev",
+      name: "impl",
+      frontmatter: {
+        description: "Impl",
+        inputs: { what: "What" },
+        "confirm-before-run": false,
+        internal: false,
+      },
+      body: "Do the work.",
+      outputs: {},
+    };
+
+    const prompt = buildWorkerPrompt(workflow, { what: { type: "evidenced", body: "x", citations: [citation] } }, "t-1");
+
+    const taskIdx = prompt.indexOf("## タスク");
+    const workflowIdx = prompt.indexOf("## ワークフロー");
+    const protocolIdx = prompt.indexOf("## プロトコル");
+
+    expect(taskIdx).toBeLessThan(workflowIdx);
+    expect(workflowIdx).toBeLessThan(protocolIdx);
   });
 });

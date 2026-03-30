@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { createDefaultVerifier } from "../src/evidence.js";
+import { createDefaultVerifier } from "../src/intent-gate.js";
 import type { EvidencedInput } from "../src/types.js";
 
 let tmpDir: string;

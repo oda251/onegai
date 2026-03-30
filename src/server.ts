@@ -21,8 +21,7 @@ import {
 import type { Workflow, Task } from "./types.js";
 import { createWorkerSpawner, type SpawnWorkerFn } from "./worker.js";
 import { defaults, serverUrl, type ServerConfig } from "./config.js";
-import { createDefaultVerifier, type EvidenceVerifier } from "./evidence.js";
-import type { EvidencedInput } from "./types.js";
+import { createDefaultVerifier, runIntentGate, type EvidenceVerifier } from "./intent-gate.js";
 import {
   RunArgsSchema,
   DoneArgsSchema,
@@ -190,17 +189,8 @@ function configureMcpServer(server: Server, ctx: McpContext) {
         if (!parsed.success) return validationError(parsed.issues);
 
         if (verifyEvidence) {
-          const evidenced: Record<string, { entry: EvidencedInput; key: string }> = {};
-          for (const [k, entry] of Object.entries(parsed.output.inputs)) {
-            if (entry.type === "evidenced") evidenced[k] = { entry, key: k };
-          }
-          if (Object.keys(evidenced).length > 0) {
-            const results = await verifyEvidence(evidenced, transcriptStore.path);
-            const failed = results.filter((r) => !r.ok && r.detail);
-            if (failed.length > 0) {
-              return errorResponse(`Evidence verification failed: ${failed.map((r) => `${r.key}: ${r.detail}`).join("; ")}`);
-            }
-          }
+          const gate = await runIntentGate(parsed.output.inputs, verifyEvidence, transcriptStore.path);
+          if (gate.isErr()) return errorResponse(gate.error);
         }
 
         return runWorkflow(workflows, store, { ...parsed.output, caller: callerId, transcriptPath: transcriptStore.path }).match(

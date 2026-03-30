@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
-import type { Citation, EvidencedInput } from "./types.js";
+import { ok, err, type Result } from "neverthrow";
+import type { Citation, EvidencedInput, InputEntry } from "./types.js";
 
 export interface VerificationResult {
   key: string;
@@ -26,6 +27,32 @@ export function createDefaultVerifier(): EvidenceVerifier {
 
     return results;
   };
+}
+
+/**
+ * Intent Gate: verify all evidenced inputs before task creation.
+ * Returns Ok(undefined) if all pass, Err(message) if any fail.
+ */
+export async function runIntentGate(
+  inputs: Record<string, InputEntry>,
+  verifier: EvidenceVerifier,
+  transcriptPath?: string,
+): Promise<Result<undefined, string>> {
+  const evidenced: Record<string, { entry: EvidencedInput; key: string }> = {};
+  for (const [k, entry] of Object.entries(inputs)) {
+    if (entry.type === "evidenced") evidenced[k] = { entry, key: k };
+  }
+
+  if (Object.keys(evidenced).length === 0) return ok(undefined);
+
+  const results = await verifier(evidenced, transcriptPath);
+  const failed = results.filter((r): r is typeof r & { detail: string } => !r.ok && !!r.detail);
+
+  if (failed.length > 0) {
+    return err(`Intent Gate failed: ${failed.map((r) => `${r.key}: ${r.detail}`).join("; ")}`);
+  }
+
+  return ok(undefined);
 }
 
 async function verifyCitation(
@@ -97,7 +124,7 @@ const TEXT_EXTENSIONS = new Set([
   ".env", ".ini", ".cfg", ".conf",
   ".lock", ".log",
   ".vue", ".svelte", ".astro",
-])
+]);
 
 function isTextFile(path: string): boolean {
   const dot = path.lastIndexOf(".");

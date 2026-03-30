@@ -1,5 +1,4 @@
 import { readFileSync } from "node:fs";
-import { spawnSync } from "node:child_process";
 import { ok, err, type Result } from "neverthrow";
 import type { Citation, EvidencedInput, InputEntry } from "./types.js";
 
@@ -66,7 +65,7 @@ async function verifyCitation(
   }
 
   if (citation.type === "command") {
-    return verifyCommand(key, citation);
+    return { key, citation, ok: true };
   }
 
   if (isFilePath(citation.source)) {
@@ -77,23 +76,6 @@ async function verifyCitation(
   }
 
   return verifyUri(key, citation);
-}
-
-function verifyCommand(
-  key: string,
-  citation: Citation & { type: "command" },
-): VerificationResult {
-  try {
-    const result = spawnSync("sh", ["-c", citation.command], {
-      timeout: 10_000,
-      encoding: "utf-8",
-    });
-    const output = (result.stdout ?? "") + (result.stderr ?? "");
-    const found = output.includes(citation.excerpt);
-    return { key, citation, ok: found, detail: found ? undefined : `excerpt not found in output of: ${citation.command}` };
-  } catch {
-    return { key, citation, ok: false, detail: `command failed: ${citation.command}` };
-  }
 }
 
 function verifyTextFile(

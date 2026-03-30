@@ -38,8 +38,10 @@ async function verifyCitation(
     return verifyTextFile(key, citation, transcriptPath);
   }
 
-  // uri: ファイルパスなら grep、それ以外は存在チェック
   if (isFilePath(citation.source)) {
+    if (!isTextFile(citation.source)) {
+      return { key, citation, ok: false, detail: `not a text file: ${citation.source}` };
+    }
     return verifyTextFile(key, citation, citation.source);
   }
 
@@ -81,4 +83,25 @@ async function verifyUri(
 
 function isFilePath(source: string): boolean {
   return !source.startsWith("http://") && !source.startsWith("https://");
+}
+
+const TEXT_EXTENSIONS = new Set([
+  ".txt", ".md", ".markdown",
+  ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs",
+  ".json", ".jsonl", ".yaml", ".yml", ".toml",
+  ".html", ".htm", ".css", ".scss",
+  ".py", ".rb", ".go", ".rs", ".java", ".kt", ".scala",
+  ".c", ".cpp", ".h", ".hpp", ".cs",
+  ".sh", ".bash", ".zsh", ".fish",
+  ".sql", ".graphql", ".gql",
+  ".xml", ".svg", ".csv", ".tsv",
+  ".env", ".ini", ".cfg", ".conf",
+  ".lock", ".log",
+  ".vue", ".svelte", ".astro",
+])
+
+function isTextFile(path: string): boolean {
+  const dot = path.lastIndexOf(".");
+  if (dot === -1) return false;
+  return TEXT_EXTENSIONS.has(path.slice(dot).toLowerCase());
 }

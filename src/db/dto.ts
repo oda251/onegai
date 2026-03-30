@@ -61,16 +61,10 @@ export const RegisterTranscriptArgsSchema = v.object({
   path: nonEmptyString,
 });
 
-export const EvidenceWarningSchema = v.object({
-  key: v.string(),
-  detail: v.string(),
-});
-
 export const RunResponseSchema = v.object({
   ...TaskRefSchema.entries,
   status: v.literal("running"),
   prompt: v.string(),
-  warnings: v.optional(v.array(EvidenceWarningSchema)),
 });
 
 export const DoneResponseSchema = v.object({

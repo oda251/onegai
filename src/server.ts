@@ -188,24 +188,27 @@ function configureMcpServer(server: Server, ctx: McpContext) {
       case "run": {
         const parsed = v.safeParse(RunArgsSchema, args);
         if (!parsed.success) return validationError(parsed.issues);
-        return runWorkflow(workflows, store, { ...parsed.output, caller: callerId, transcriptPath: transcriptStore.path }).match(
-          async (data) => {
-            let warnings: { key: string; detail: string }[] | undefined;
-            if (verifyEvidence) {
-              const evidenced: Record<string, { entry: EvidencedInput; key: string }> = {};
-              for (const [k, entry] of Object.entries(parsed.output.inputs)) {
-                if (entry.type === "evidenced") evidenced[k] = { entry, key: k };
-              }
-              if (Object.keys(evidenced).length > 0) {
-                const results = await verifyEvidence(evidenced, transcriptStore.path);
-                const failed = results.filter((r): r is typeof r & { detail: string } => !r.ok && !!r.detail);
-                if (failed.length > 0) warnings = failed.map((r) => ({ key: r.key, detail: r.detail }));
-              }
+
+        if (verifyEvidence) {
+          const evidenced: Record<string, { entry: EvidencedInput; key: string }> = {};
+          for (const [k, entry] of Object.entries(parsed.output.inputs)) {
+            if (entry.type === "evidenced") evidenced[k] = { entry, key: k };
+          }
+          if (Object.keys(evidenced).length > 0) {
+            const results = await verifyEvidence(evidenced, transcriptStore.path);
+            const failed = results.filter((r) => !r.ok && r.detail);
+            if (failed.length > 0) {
+              return errorResponse(`Evidence verification failed: ${failed.map((r) => `${r.key}: ${r.detail}`).join("; ")}`);
             }
+          }
+        }
+
+        return runWorkflow(workflows, store, { ...parsed.output, caller: callerId, transcriptPath: transcriptStore.path }).match(
+          (data) => {
             if (spawnWorker) spawnWorker(data.prompt, data.task.id);
             const dto: RunResponse = {
               taskId: data.task.id, title: data.task.title,
-              status: data.status, prompt: data.prompt, warnings,
+              status: data.status, prompt: data.prompt,
             };
             return jsonResponse(dto);
           },

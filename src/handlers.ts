@@ -1,5 +1,5 @@
 import { ok, err, type Result } from "neverthrow";
-import type { Workflow, Task, InputValue } from "./types.js";
+import type { Workflow, Task, InputEntry } from "./types.js";
 import type { TaskStore } from "./task-store.js";
 import { getRunnableWorkflows } from "./workflow-loader.js";
 import { buildWorkerPrompt } from "./prompt-builder.js";
@@ -35,6 +35,10 @@ export interface RejectResult {
   reason: string;
 }
 
+function inputText(entry: InputEntry): string {
+  return entry.type === "plain" ? entry.value : entry.body;
+}
+
 export function listWorkflows(
   workflows: Map<string, Workflow>,
 ): WorkflowSummary[] {
@@ -52,7 +56,7 @@ export function runWorkflow(
   params: {
     type: string;
     title: string;
-    inputs: Record<string, InputValue>;
+    inputs: Record<string, InputEntry>;
     group?: string;
     caller?: string;
     transcriptPath?: string;
@@ -67,7 +71,7 @@ export function runWorkflow(
 
   const missingInputs: string[] = [];
   for (const key of Object.keys(workflow.frontmatter.inputs)) {
-    if (!(key in params.inputs) || !params.inputs[key]?.body) {
+    if (!(key in params.inputs) || !inputText(params.inputs[key])) {
       missingInputs.push(key);
     }
   }
@@ -125,10 +129,10 @@ export function completeTask(
       const nextType = `${workflow.domain}/${workflow.frontmatter.next}`;
       const nextWorkflow = workflows.get(nextType);
       if (nextWorkflow) {
-        const nextInputs: Record<string, InputValue> = {};
+        const nextInputs: Record<string, InputEntry> = {};
         for (const key of Object.keys(nextWorkflow.frontmatter.inputs)) {
           if (key in params.output) {
-            nextInputs[key] = { body: params.output[key] };
+            nextInputs[key] = { type: "plain", value: params.output[key] };
           } else if (key in task.inputs) {
             nextInputs[key] = task.inputs[key];
           }

@@ -28,10 +28,18 @@ export type UriCitation = {
 
 export type Citation = TranscriptCitation | UriCitation;
 
-export interface InputValue {
+export interface PlainInput {
+  type: "plain";
+  value: string;
+}
+
+export interface EvidencedInput {
+  type: "evidenced";
   body: string;
   citations?: Citation[];
 }
+
+export type InputEntry = PlainInput | EvidencedInput;
 
 export type TaskStatus = "running" | "done" | "rejected";
 
@@ -39,7 +47,7 @@ export interface Task {
   id: string;
   type: string;
   title: string;
-  inputs: Record<string, InputValue>;
+  inputs: Record<string, InputEntry>;
   status: TaskStatus;
   output?: Record<string, string>;
   reason?: string;

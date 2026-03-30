@@ -84,7 +84,7 @@ describe("runWorkflow", () => {
     const result = runWorkflow(makeWorkflows(), store, {
       type: "dev/impl",
       title: "Add auth",
-      inputs: { what: { body: "JWT" }, where: { body: "src/" } },
+      inputs: { what: { type: "evidenced", body:"JWT" }, where: { type: "evidenced", body:"src/" } },
     });
 
     expect(result.isOk()).toBe(true);
@@ -111,7 +111,7 @@ describe("runWorkflow", () => {
     const result = runWorkflow(makeWorkflows(), store, {
       type: "dev/review",
       title: "Test",
-      inputs: { changes: { body: "file.ts" } },
+      inputs: { changes: { type: "evidenced", body:"file.ts" } },
     });
 
     expect(result.isErr()).toBe(true);
@@ -123,7 +123,7 @@ describe("runWorkflow", () => {
     const result = runWorkflow(makeWorkflows(), store, {
       type: "dev/impl",
       title: "Test",
-      inputs: { what: { body: "something" } },
+      inputs: { what: { type: "evidenced", body:"something" } },
     });
 
     expect(result.isErr()).toBe(true);
@@ -135,7 +135,7 @@ describe("runWorkflow", () => {
     const result = runWorkflow(makeWorkflows(), store, {
       type: "dev/impl",
       title: "Test",
-      inputs: { what: { body: "something" }, where: { body: "" } },
+      inputs: { what: { type: "evidenced", body:"something" }, where: { type: "evidenced", body:"" } },
     });
 
     expect(result.isErr()).toBe(true);
@@ -150,7 +150,7 @@ describe("completeTask", () => {
     const run = runWorkflow(workflows, store, {
       type: "research/gather",
       title: "Research",
-      inputs: { topic: { body: "JWT" } },
+      inputs: { topic: { type: "evidenced", body:"JWT" } },
     });
     const { task: { id: taskId } } = run._unsafeUnwrap();
 
@@ -172,7 +172,7 @@ describe("completeTask", () => {
     const run = runWorkflow(workflows, store, {
       type: "dev/impl",
       title: "Add auth",
-      inputs: { what: { body: "auth" }, where: { body: "src/" } },
+      inputs: { what: { type: "evidenced", body:"auth" }, where: { type: "evidenced", body:"src/" } },
     });
     const { task: { id: taskId } } = run._unsafeUnwrap();
 
@@ -195,7 +195,7 @@ describe("completeTask", () => {
     expect(nextTask).toBeDefined();
     expect(nextTask?.type).toBe("dev/review");
     expect(nextTask?.chainParent).toBe(taskId);
-    expect(nextTask?.inputs).toEqual({ changes: { body: "modified src/auth.ts" } });
+    expect(nextTask?.inputs).toEqual({ changes: { type: "plain", value: "modified src/auth.ts" } });
   });
 
   it("rejects done with missing required outputs", () => {
@@ -204,7 +204,7 @@ describe("completeTask", () => {
     const run = runWorkflow(workflows, store, {
       type: "dev/impl",
       title: "Add auth",
-      inputs: { what: { body: "auth" }, where: { body: "src/" } },
+      inputs: { what: { type: "evidenced", body:"auth" }, where: { type: "evidenced", body:"src/" } },
     });
     const { task: { id: taskId } } = run._unsafeUnwrap();
 
@@ -227,7 +227,7 @@ describe("completeTask", () => {
     const run = runWorkflow(workflows, store, {
       type: "dev/impl",
       title: "Test",
-      inputs: { what: { body: "auth" }, where: { body: "src/" } },
+      inputs: { what: { type: "evidenced", body:"auth" }, where: { type: "evidenced", body:"src/" } },
     });
     const { task: { id: taskId } } = run._unsafeUnwrap();
 
@@ -246,7 +246,7 @@ describe("completeTask", () => {
     const run = runWorkflow(workflows, store, {
       type: "research/gather",
       title: "Research",
-      inputs: { topic: { body: "JWT" } },
+      inputs: { topic: { type: "evidenced", body:"JWT" } },
     });
     const { task: { id: taskId } } = run._unsafeUnwrap();
 
@@ -266,7 +266,7 @@ describe("completeTask", () => {
     const run = runWorkflow(workflows, store, {
       type: "research/gather",
       title: "T",
-      inputs: { topic: { body: "test" } },
+      inputs: { topic: { type: "evidenced", body:"test" } },
     });
     const { task: { id: taskId } } = run._unsafeUnwrap();
     completeTask(workflows, store, { taskId, output: {} });
@@ -376,13 +376,13 @@ describe("concurrent tasks", () => {
     const run1 = runWorkflow(workflows, store, {
       type: "research/gather",
       title: "Research A",
-      inputs: { topic: { body: "A" } },
+      inputs: { topic: { type: "evidenced", body:"A" } },
     })._unsafeUnwrap();
 
     const run2 = runWorkflow(workflows, store, {
       type: "research/gather",
       title: "Research B",
-      inputs: { topic: { body: "B" } },
+      inputs: { topic: { type: "evidenced", body:"B" } },
     })._unsafeUnwrap();
 
     // Complete first, reject second

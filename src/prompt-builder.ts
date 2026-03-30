@@ -1,8 +1,8 @@
-import type { Workflow, InputValue, Citation } from "./types.js";
+import type { Workflow, InputEntry, Citation } from "./types.js";
 
 export function buildWorkerPrompt(
   workflow: Workflow,
-  inputs: Record<string, InputValue>,
+  inputs: Record<string, InputEntry>,
   taskId: string,
   transcriptPath?: string,
 ): string {
@@ -36,9 +36,12 @@ export function buildWorkerPrompt(
   return sections.join("\n\n");
 }
 
-function formatInput(key: string, entry: InputValue, transcriptPath?: string): string {
-  const lines = [`- **${key}**: ${entry.body}`];
+function formatInput(key: string, entry: InputEntry, transcriptPath?: string): string {
+  if (entry.type === "plain") {
+    return `- **${key}**: ${entry.value}`;
+  }
 
+  const lines = [`- **${key}**: ${entry.body}`];
   if (entry.citations && entry.citations.length > 0) {
     for (const citation of entry.citations) {
       const source = resolveSource(citation, transcriptPath);
@@ -49,7 +52,6 @@ function formatInput(key: string, entry: InputValue, transcriptPath?: string): s
       }
     }
   }
-
   return lines.join("\n");
 }
 

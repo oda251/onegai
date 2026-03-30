@@ -21,7 +21,7 @@ describe("buildWorkerPrompt", () => {
 
     const prompt = buildWorkerPrompt(
       workflow,
-      { what: { body: "JWT middleware" }, where: { body: "src/auth/" } },
+      { what: { type: "evidenced", body:"JWT middleware" }, where: { type: "evidenced", body:"src/auth/" } },
       "task-123",
     );
 
@@ -51,7 +51,7 @@ describe("buildWorkerPrompt", () => {
 
     const prompt = buildWorkerPrompt(
       workflow,
-      { changes: { body: "src/auth/middleware.ts" } },
+      { changes: { type: "evidenced", body:"src/auth/middleware.ts" } },
       "task-456",
     );
 
@@ -74,7 +74,7 @@ describe("buildWorkerPrompt", () => {
       outputs: {},
     };
 
-    const prompt = buildWorkerPrompt(workflow, { what: { body: "x" } }, "abc-999");
+    const prompt = buildWorkerPrompt(workflow, { what: { type: "evidenced", body:"x" } }, "abc-999");
 
     // taskId appears in both done and reject instructions
     const doneMatch = prompt.match(/done ツール.*abc-999/);
@@ -99,7 +99,7 @@ describe("buildWorkerPrompt", () => {
       outputs: { changes: "Changed files", summary: "Summary of changes" },
     };
 
-    const prompt = buildWorkerPrompt(workflow, { what: { body: "x" } }, "task-1");
+    const prompt = buildWorkerPrompt(workflow, { what: { type: "evidenced", body:"x" } }, "task-1");
 
     expect(prompt).toContain("changes");
     expect(prompt).toContain("summary");
@@ -123,7 +123,7 @@ describe("buildWorkerPrompt", () => {
 
     const prompt = buildWorkerPrompt(
       workflow,
-      { changes: { body: "file.ts" } },
+      { changes: { type: "evidenced", body:"file.ts" } },
       "task-2",
     );
 

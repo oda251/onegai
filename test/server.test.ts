@@ -213,7 +213,7 @@ Research.`,
       arguments: {
         type: "research/gather",
         title: "Research JWT",
-        inputs: { topic: { body: "JWT" } },
+        inputs: { topic: { type: "evidenced", body:"JWT" } },
       },
     });
     expect(runResult.isError).toBeUndefined();
@@ -246,7 +246,7 @@ Research.`,
       arguments: {
         type: "dev/impl",
         title: "Test",
-        inputs: { what: { body: "feature" }, where: { body: "src/" } },
+        inputs: { what: { type: "evidenced", body:"feature" }, where: { type: "evidenced", body:"src/" } },
       },
     });
     const { taskId } = parseText(runResult);
@@ -276,7 +276,7 @@ Research.`,
       arguments: {
         type: "dev/impl",
         title: "Add auth",
-        inputs: { what: { body: "auth middleware" }, where: { body: "src/auth.ts" } },
+        inputs: { what: { type: "evidenced", body:"auth middleware" }, where: { type: "evidenced", body:"src/auth.ts" } },
       },
     });
     const { taskId } = parseText(runResult);
@@ -312,7 +312,7 @@ Research.`,
       arguments: {
         type: "dev/impl",
         title: "Test",
-        inputs: { what: { body: "feature" }, where: { body: "src/" } },
+        inputs: { what: { type: "evidenced", body:"feature" }, where: { type: "evidenced", body:"src/" } },
       },
     });
     const { taskId } = parseText(runResult);
@@ -354,13 +354,13 @@ Research.`,
     const run1 = parseText(
       await client.callTool({
         name: "run",
-        arguments: { type: "dev/impl", title: "Task 1", inputs: { what: { body: "A" }, where: { body: "a/" } } },
+        arguments: { type: "dev/impl", title: "Task 1", inputs: { what: { type: "evidenced", body:"A" }, where: { type: "evidenced", body:"a/" } } },
       }),
     );
     const run2 = parseText(
       await client.callTool({
         name: "run",
-        arguments: { type: "research/gather", title: "Task 2", inputs: { topic: { body: "B" } } },
+        arguments: { type: "research/gather", title: "Task 2", inputs: { topic: { type: "evidenced", body:"B" } } },
       }),
     );
 
@@ -410,7 +410,7 @@ Research.`,
     const runResult = parseText(
       await c.callTool({
         name: "run",
-        arguments: { type: "research/gather", title: "Research JWT", inputs: { topic: { body: "JWT" } } },
+        arguments: { type: "research/gather", title: "Research JWT", inputs: { topic: { type: "evidenced", body:"JWT" } } },
       }),
     );
 
@@ -451,7 +451,7 @@ Research.`,
     const runResult = parseText(
       await c.callTool({
         name: "run",
-        arguments: { type: "dev/impl", title: "Auth impl", inputs: { what: { body: "auth" }, where: { body: "src/" } } },
+        arguments: { type: "dev/impl", title: "Auth impl", inputs: { what: { type: "evidenced", body:"auth" }, where: { type: "evidenced", body:"src/" } } },
       }),
     );
 
@@ -488,7 +488,7 @@ Research.`,
     const runResult = parseText(
       await c.callTool({
         name: "run",
-        arguments: { type: "dev/impl", title: "Auth", inputs: { what: { body: "auth" }, where: { body: "src/" } } },
+        arguments: { type: "dev/impl", title: "Auth", inputs: { what: { type: "evidenced", body:"auth" }, where: { type: "evidenced", body:"src/" } } },
       }),
     );
 
@@ -522,7 +522,7 @@ Research.`,
     const runResult = parseText(
       await c.callTool({
         name: "run",
-        arguments: { type: "dev/impl", title: "Root Task", inputs: { what: { body: "auth" }, where: { body: "src/" } } },
+        arguments: { type: "dev/impl", title: "Root Task", inputs: { what: { type: "evidenced", body:"auth" }, where: { type: "evidenced", body:"src/" } } },
       }),
     );
 
@@ -610,7 +610,7 @@ Review the changes.`,
     const planResult = parseText(
       await c.callTool({
         name: "run",
-        arguments: { type: "dev/plan", title: "3-step chain", inputs: { goal: { body: "build auth" } } },
+        arguments: { type: "dev/plan", title: "3-step chain", inputs: { goal: { type: "evidenced", body:"build auth" } } },
       }),
     );
 
@@ -694,13 +694,13 @@ Research.`,
     const task1 = parseText(
       await c.callTool({
         name: "run",
-        arguments: { type: "research/gather", title: "Research A", inputs: { topic: { body: "A" } }, group: "batch-1" },
+        arguments: { type: "research/gather", title: "Research A", inputs: { topic: { type: "evidenced", body:"A" } }, group: "batch-1" },
       }),
     );
     const task2 = parseText(
       await c.callTool({
         name: "run",
-        arguments: { type: "research/gather", title: "Research B", inputs: { topic: { body: "B" } }, group: "batch-1" },
+        arguments: { type: "research/gather", title: "Research B", inputs: { topic: { type: "evidenced", body:"B" } }, group: "batch-1" },
       }),
     );
 
@@ -764,13 +764,13 @@ Research.`,
     const task1 = parseText(
       await c.callTool({
         name: "run",
-        arguments: { type: "research/gather", title: "Task A", inputs: { topic: { body: "A" } }, group: "g2" },
+        arguments: { type: "research/gather", title: "Task A", inputs: { topic: { type: "evidenced", body:"A" } }, group: "g2" },
       }),
     );
     const task2 = parseText(
       await c.callTool({
         name: "run",
-        arguments: { type: "research/gather", title: "Task B", inputs: { topic: { body: "B" } }, group: "g2" },
+        arguments: { type: "research/gather", title: "Task B", inputs: { topic: { type: "evidenced", body:"B" } }, group: "g2" },
       }),
     );
 
@@ -822,7 +822,7 @@ Research.`,
     const task = parseText(
       await c.callTool({
         name: "run",
-        arguments: { type: "research/gather", title: "Solo", inputs: { topic: { body: "X" } } },
+        arguments: { type: "research/gather", title: "Solo", inputs: { topic: { type: "evidenced", body:"X" } } },
       }),
     );
     await c.callTool({
@@ -862,6 +862,7 @@ Do it.`,
         title: "Structured input test",
         inputs: {
           what: {
+            type: "evidenced",
             body: "Migrate auth to JWT",
             citations: [
               { type: "uri", source: "src/auth/session.ts:15-40", excerpt: "app.use(session(...))" },
@@ -901,7 +902,7 @@ Do it.`,
       arguments: {
         type: "dev/simple",
         title: "Empty body",
-        inputs: { what: { body: "", citations: [] } },
+        inputs: { what: { type: "evidenced", body:"", citations: [] } },
       },
     });
 
@@ -941,6 +942,7 @@ Do it.`,
         title: "With transcript",
         inputs: {
           what: {
+            type: "evidenced",
             body: "Do the thing",
             citations: [{ type: "transcript", excerpt: "ユーザーの要求" }],
           },

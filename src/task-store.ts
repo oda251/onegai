@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { ok, err, type Result } from "neverthrow";
 import { tasks } from "./db/schema.js";
 import type { Db } from "./db/index.js";
-import type { Task, InputValue } from "./types.js";
+import type { Task, InputEntry } from "./types.js";
 
 export class TaskStore {
   constructor(private db: Db) {}
@@ -11,7 +11,7 @@ export class TaskStore {
   create(params: {
     type: string;
     title: string;
-    inputs: Record<string, InputValue>;
+    inputs: Record<string, InputEntry>;
     next?: string;
     chainParent?: string;
     group?: string;
@@ -89,7 +89,7 @@ function toTask(row: typeof tasks.$inferSelect): Task {
     id: row.id,
     type: row.type,
     title: row.title,
-    inputs: row.inputs as Record<string, InputValue>,
+    inputs: row.inputs as Record<string, InputEntry>,
     status: row.status as Task["status"],
     output: row.output ?? undefined,
     reason: row.reason ?? undefined,

@@ -11,10 +11,18 @@ export const CitationSchema = v.union([
   v.object({ type: v.literal("uri"), source: v.string(), excerpt: v.string() }),
 ]);
 
-export const InputValueSchema = v.object({
+export const PlainInputSchema = v.object({
+  type: v.literal("plain"),
+  value: nonEmptyString,
+});
+
+export const EvidencedInputSchema = v.object({
+  type: v.literal("evidenced"),
   body: nonEmptyString,
   citations: v.optional(v.array(CitationSchema)),
 });
+
+export const InputEntrySchema = v.union([PlainInputSchema, EvidencedInputSchema]);
 
 const ChainStepSchema = v.object({
   taskId: v.string(),
@@ -31,7 +39,7 @@ export const TaskRefSchema = v.object({
 export const RunArgsSchema = v.object({
   type: nonEmptyString,
   title: nonEmptyString,
-  inputs: v.record(v.string(), InputValueSchema),
+  inputs: v.record(v.string(), InputEntrySchema),
   group: v.optional(v.string()),
 });
 

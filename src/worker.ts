@@ -34,7 +34,7 @@ async function runWorker(
       cwd: config.cwd,
       allowedTools: options?.tools,
       mcpServers: {
-        sidekick: { url: `${config.serverUrl}/worker` },
+        sidekick: { url: config.serverUrl },
       },
       permissionMode: (options?.permissionMode ?? "auto") as "auto",
       allowDangerouslySkipPermissions: true,

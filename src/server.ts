@@ -21,44 +21,19 @@ import {
 import type { Workflow, Task } from "./types.js";
 import { createWorkerSpawner, type SpawnWorkerFn } from "./worker.js";
 import { defaults, serverUrl, type ServerConfig } from "./config.js";
-import type { RunResponse, DoneResponse, RejectResponse } from "./db/dto.js";
-
-// --- Valibot schemas (input validation) ---
-
-const CitationSchema = v.union([
-  v.object({ type: v.literal("transcript"), excerpt: v.string() }),
-  v.object({ type: v.literal("uri"), source: v.string(), excerpt: v.string() }),
-]);
-
-const InputValueSchema = v.object({
-  body: v.pipe(v.string(), v.minLength(1)),
-  citations: v.optional(v.array(CitationSchema)),
-});
-
-const RunArgsSchema = v.object({
-  type: v.pipe(v.string(), v.minLength(1)),
-  title: v.pipe(v.string(), v.minLength(1)),
-  inputs: v.record(v.string(), InputValueSchema),
-  group: v.optional(v.string()),
-});
-
-const StatusArgsSchema = v.object({
-  taskId: v.optional(v.string()),
-});
-
-const DoneArgsSchema = v.object({
-  taskId: v.pipe(v.string(), v.minLength(1)),
-  output: v.record(v.string(), v.string()),
-});
-
-const RejectArgsSchema = v.object({
-  taskId: v.pipe(v.string(), v.minLength(1)),
-  reason: v.pipe(v.string(), v.minLength(1)),
-});
-
-const RegisterTranscriptArgsSchema = v.object({
-  path: v.pipe(v.string(), v.minLength(1)),
-});
+import {
+  RunArgsSchema,
+  DoneArgsSchema,
+  RejectArgsSchema,
+  StatusArgsSchema,
+  RegisterTranscriptArgsSchema,
+  type RunResponse,
+  type DoneResponse,
+  type RejectResponse,
+  type TaskDoneNotification,
+  type TaskRejectedNotification,
+  type GroupDoneNotification,
+} from "./db/dto.js";
 
 // --- MCP response helpers ---
 
@@ -93,20 +68,32 @@ function notifyCaller(
   if (fn) fn(event, params);
 }
 
-function notifyTaskSettled(
+function resolveRoot(store: TaskStore, task: Task): { id: string; title: string } {
+  const rootId = findRootTaskId(store, task.id);
+  const rootTask = rootId !== task.id ? store.get(rootId) : task;
+  return { id: rootId, title: (rootTask ?? task).title };
+}
+
+function notifyTaskDone(
   notifiers: Map<string, NotifyFn>,
   store: TaskStore,
   task: Task,
-  event: string,
-  extra: Record<string, unknown>,
+  output: Record<string, string>,
 ) {
-  const rootId = findRootTaskId(store, task.id);
-  const rootTask = rootId !== task.id ? store.get(rootId) : task;
-  notifyCaller(notifiers, task.caller, event, {
-    taskId: rootId,
-    title: (rootTask ?? task).title,
-    ...extra,
-  });
+  const root = resolveRoot(store, task);
+  const payload: TaskDoneNotification = { taskId: root.id, title: root.title, output };
+  notifyCaller(notifiers, task.caller, "task.done", payload);
+}
+
+function notifyTaskRejected(
+  notifiers: Map<string, NotifyFn>,
+  store: TaskStore,
+  task: Task,
+  reason: string,
+) {
+  const root = resolveRoot(store, task);
+  const payload: TaskRejectedNotification = { taskId: root.id, title: root.title, reason };
+  notifyCaller(notifiers, task.caller, "task.rejected", payload);
 }
 
 function notifyIfGroupSettled(
@@ -116,10 +103,11 @@ function notifyIfGroupSettled(
 ) {
   const settled = getSettledGroup(store, task);
   if (!settled) return;
-  notifyCaller(notifiers, task.caller, "group.done", {
+  const payload: GroupDoneNotification = {
     group: settled.group,
     tasks: settled.tasks.map((t) => ({ taskId: t.id, title: t.title, status: t.status })),
-  });
+  };
+  notifyCaller(notifiers, task.caller, "group.done", payload);
 }
 
 // --- MCP tool definitions ---
@@ -237,7 +225,7 @@ function configureMcpServer(server: Server, ctx: McpContext) {
         if (!parsed.success) return validationError(parsed.issues);
         return completeTask(workflows, store, parsed.output, transcriptStore.path).match(
           (data) => {
-            if (!data.next) notifyTaskSettled(notifiers, store, data.task, "task.done", { output: data.output });
+            if (!data.next) notifyTaskDone(notifiers, store, data.task, data.output);
             if (data.next && spawnWorker) spawnWorker(data.next.prompt, data.next.taskId);
             notifyIfGroupSettled(notifiers, store, data.task);
             const dto: DoneResponse = {
@@ -255,7 +243,7 @@ function configureMcpServer(server: Server, ctx: McpContext) {
         if (!parsed.success) return validationError(parsed.issues);
         return rejectTask(store, parsed.output).match(
           (data) => {
-            notifyTaskSettled(notifiers, store, data.task, "task.rejected", { reason: data.reason });
+            notifyTaskRejected(notifiers, store, data.task, data.reason);
             notifyIfGroupSettled(notifiers, store, data.task);
             const dto: RejectResponse = {
               taskId: data.task.id, title: data.task.title,

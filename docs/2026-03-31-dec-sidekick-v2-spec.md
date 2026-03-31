@@ -258,9 +258,13 @@ sidekick lint [--dir path]                スキル定義の検証
 sidekick setup                            hooks とスキルをプロジェクトにインストール
 ```
 
+## MCP が不要な理由
+
+メインエージェントが Bash ツールで `sidekick run` を呼べば、実行完了時にプロセスが終了して結果が返る。MCP の非同期通知は不要。状態確認も `sidekick run view` で CLI から取得できる。MCP サーバーを常駐させる理由がない。
+
 ## 不要になったもの
 
-- MCP サーバー（メインエージェントが CLI を直接呼ぶ）
+- MCP サーバー（CLI で完結する）
 - done/reject ツール（GHA 互換の GITHUB_OUTPUT + exit code）
 - task-store / DB（run store をファイルベースで管理）
 - actrun 依存（DAG 解決を自前実装）

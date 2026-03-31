@@ -158,9 +158,13 @@ actrun 本体への変更は不要。PR で提供するのは:
 
 actrun のローカル Node action サポートが既に実装されているため、これだけで動く。
 
+## 決定事項
+
+**DAG 管理は actrun-mcp が持つ。** actrun は 1 job の steps を実行するだけ。actrun-mcp が `needs` を解決し、job ごとに `actrun` を呼ぶ。これにより LLM が job 間に判断を挟めるようになる（全 job を一気に流す actrun の制約を回避）。
+
 ## 未決事項
 
-- actrun の job 間 outputs 伝播と sidekick の構造化 inputs (plain/evidenced) の接続方法
+- actrun の job 間 outputs 伝播と構造化 inputs (plain/evidenced) の接続方法
 - actrun の `runs-on` フィールドの扱い（ローカル実行なので無視？）
 - actrun-mcp がワークフロー .yml をどこから読むか（skills/ ディレクトリ？.github/workflows/？）
-- LLM が job 間に判断を挟むフロー（actrun は全 job を一気に実行する前提）の実現方法
+- actrun を 1 job 単位で呼ぶ CLI インターフェース（`actrun run --job <name>` 相当が存在するか）

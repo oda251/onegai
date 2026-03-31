@@ -6,6 +6,7 @@ import { parseWorkflowFile } from "./workflow-parser.js";
 import { runWorkflow } from "./runner.js";
 import { inspectWorkflow } from "./inspect.js";
 import { resolveSkillsDirs } from "./skill-loader.js";
+import { resolveWorkflowsDirs, findWorkflowFiles } from "./paths.js";
 import type { InputEntry } from "./types.js";
 
 const args = process.argv.slice(2);
@@ -25,6 +26,9 @@ switch (command) {
     break;
   case "view":
     handleView(args.slice(1));
+    break;
+  case "list":
+    handleList(args.slice(1));
     break;
   default:
     if (command.endsWith(".yml")) {
@@ -128,12 +132,48 @@ function handleView(viewArgs: string[]) {
   }
 }
 
+function handleList(listArgs: string[]) {
+  const cwd = process.cwd();
+  const skillsDirs = resolveSkillsDirs(cwd);
+  const workflowDirs = resolveWorkflowsDirs(cwd);
+  const files = findWorkflowFiles(workflowDirs);
+
+  const isContext = listArgs.includes("--context");
+
+  if (files.length === 0) {
+    if (!isContext) console.log("No workflows found.");
+    return;
+  }
+
+  const lines: string[] = [];
+  for (const file of files) {
+    try {
+      const result = inspectWorkflow(file, skillsDirs);
+      const inputs = result.requiredInputs
+        .map((i) => `${i.key}[${i.type}]`)
+        .join(", ");
+      const inputSuffix = inputs ? ` (inputs: ${inputs})` : "";
+      lines.push(`- ${file}: ${result.name}${inputSuffix}`);
+    } catch {
+      lines.push(`- ${file}: (parse error)`);
+    }
+  }
+
+  if (isContext) {
+    const context = `利用可能なワークフロー:\n${lines.join("\n")}`;
+    console.log(JSON.stringify(context));
+  } else {
+    console.log("Workflows:\n" + lines.join("\n"));
+  }
+}
+
 function printUsage() {
   console.log(`sidekick - Declarative workflow orchestrator for AI agents
 
 Commands:
   run <workflow.yml> [--input key=json]   Run a workflow
   inspect <workflow.yml>                  Show required inputs as JSON
+  list [--context]                        List available workflows
   view <run-id> [--json]                  View run results
 
 Shorthand:

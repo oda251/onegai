@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { query } from "@anthropic-ai/claude-agent-sdk";
+import { query, type PermissionMode } from "@anthropic-ai/claude-agent-sdk";
 import type { Step, SkillStep, StepResult, InputEntry, Workflow } from "./types.js";
 import { loadSkill } from "./skill-loader.js";
 import { buildWorkerPrompt } from "./prompt-builder.js";
@@ -153,7 +153,7 @@ async function executeSkillStep(step: SkillStep, ctx: StepContext): Promise<Step
         cwd: ctx.cwd,
         model: skill.frontmatter.model,
         allowedTools: skill.frontmatter.tools,
-        permissionMode: (skill.frontmatter["permission-mode"] ?? "auto") as "auto",
+        permissionMode: (skill.frontmatter["permission-mode"] ?? "default") as PermissionMode,
         allowDangerouslySkipPermissions: true,
         maxTurns: 50,
         env: { GITHUB_OUTPUT: outputFile },

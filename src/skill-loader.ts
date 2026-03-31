@@ -3,6 +3,7 @@ import { join } from "node:path";
 import matter from "gray-matter";
 import * as v from "valibot";
 import type { Skill, InputSpec } from "./types.js";
+import { findRepoRoot } from "./paths.js";
 
 const InputSpecSchema = v.union([
   v.string(),
@@ -40,16 +41,6 @@ export function resolveSkillsDirs(cwd: string): string[] {
   return dirs;
 }
 
-function findRepoRoot(from: string): string | undefined {
-  let dir = from;
-  while (dir !== "/") {
-    if (existsSync(join(dir, ".git"))) return dir;
-    const parent = join(dir, "..");
-    if (parent === dir) break;
-    dir = parent;
-  }
-  return undefined;
-}
 
 export function loadSkill(skillsDirs: string | string[], skillName: string): Skill {
   const dirs = Array.isArray(skillsDirs) ? skillsDirs : [skillsDirs];

@@ -50,7 +50,7 @@ export async function runWorkflow(workflow: Workflow, options: RunOptions): Prom
       for (const step of job.steps) {
         const stepResult = await executeStep(step, {
           cwd: options.cwd,
-          skillsDir: options.skillsDir,
+          skillsDirs: options.skillsDirs,
           workflowFile: options.workflowFile,
           workflow,
           stepOutputs,

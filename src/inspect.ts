@@ -8,7 +8,8 @@ interface InspectResult {
   requiredInputs: { key: string; type: string; description: string }[];
 }
 
-export function inspectWorkflow(workflowPath: string, skillsDir: string): InspectResult {
+export function inspectWorkflow(workflowPath: string, skillsDirs: string | string[]): InspectResult {
+  const dirs = Array.isArray(skillsDirs) ? skillsDirs : [skillsDirs];
   const workflow = parseWorkflowFile(workflowPath);
 
   // Collect all skill inputs
@@ -17,7 +18,7 @@ export function inspectWorkflow(workflowPath: string, skillsDir: string): Inspec
     for (const step of job.steps) {
       if (step.type !== "skill") continue;
       try {
-        const skill = loadSkill(skillsDir, step.skill);
+        const skill = loadSkill(dirs, step.skill);
         for (const [key, spec] of Object.entries(skill.frontmatter.inputs)) {
           if (!(key in allInputs)) allInputs[key] = spec;
         }

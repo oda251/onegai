@@ -5,6 +5,7 @@ import { resolve, join } from "node:path";
 import { parseWorkflowFile } from "./workflow-parser.js";
 import { runWorkflow } from "./runner.js";
 import { inspectWorkflow } from "./inspect.js";
+import { resolveSkillsDirs } from "./skill-loader.js";
 import type { InputEntry } from "./types.js";
 
 const args = process.argv.slice(2);
@@ -59,7 +60,7 @@ async function handleRun(runArgs: string[]) {
   }
 
   const cwd = process.cwd();
-  const skillsDir = resolve(cwd, ".claude", "skills");
+  const skillsDirs = resolveSkillsDirs(cwd);
   const runStoreDir = resolve(cwd, ".sidekick", "runs");
 
   const workflow = parseWorkflowFile(resolve(cwd, workflowPath));
@@ -68,7 +69,7 @@ async function handleRun(runArgs: string[]) {
 
   const result = await runWorkflow(workflow, {
     cwd,
-    skillsDir,
+    skillsDirs,
     workflowFile: workflowPath,
     inputs,
     runStoreDir,
@@ -88,8 +89,8 @@ function handleInspect(inspectArgs: string[]) {
   }
 
   const cwd = process.cwd();
-  const skillsDir = resolve(cwd, ".claude", "skills");
-  const result = inspectWorkflow(resolve(cwd, workflowPath), skillsDir);
+  const skillsDirs = resolveSkillsDirs(cwd);
+  const result = inspectWorkflow(resolve(cwd, workflowPath), skillsDirs);
 
   console.log(JSON.stringify(result, null, 2));
 }

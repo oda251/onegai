@@ -24,11 +24,50 @@ function normalizeInputSpec(val: string | { description: string; type: "plain" |
   return typeof val === "string" ? { description: val, type: "evidenced" } : val;
 }
 
-export function loadSkill(skillsDir: string, skillName: string): Skill {
-  const path = join(skillsDir, `${skillName}.md`);
-  if (!existsSync(path)) {
-    throw new Error(`Skill not found: ${path}`);
+export function resolveSkillsDirs(cwd: string): string[] {
+  const candidates = [
+    join(cwd, ".claude", "skills"),                       // project local
+    join(findRepoRoot(cwd) ?? "", ".claude", "skills"),   // repo root
+    join(process.env.HOME ?? "", ".claude", "skills"),    // user global
+  ];
+  const seen = new Set<string>();
+  const dirs: string[] = [];
+  for (const dir of candidates) {
+    if (!dir || seen.has(dir)) continue;
+    seen.add(dir);
+    if (existsSync(dir)) dirs.push(dir);
   }
+  return dirs;
+}
+
+function findRepoRoot(from: string): string | undefined {
+  let dir = from;
+  while (dir !== "/") {
+    if (existsSync(join(dir, ".git"))) return dir;
+    const parent = join(dir, "..");
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return undefined;
+}
+
+export function loadSkill(skillsDirs: string | string[], skillName: string): Skill {
+  const dirs = Array.isArray(skillsDirs) ? skillsDirs : [skillsDirs];
+  let resolved: string | undefined;
+
+  for (const dir of dirs) {
+    const candidate = join(dir, `${skillName}.md`);
+    if (existsSync(candidate)) {
+      resolved = candidate;
+      break;
+    }
+  }
+
+  if (!resolved) {
+    throw new Error(`Skill not found: ${skillName} (searched: ${dirs.join(", ")})`);
+  }
+
+  const path = resolved;
 
   const raw = readFileSync(path, "utf-8");
   const { data, content } = matter(raw);

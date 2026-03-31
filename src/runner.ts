@@ -7,7 +7,7 @@ import { executeStep } from "./executor.js";
 
 interface RunOptions {
   cwd: string;
-  skillsDir: string;
+  skillsDirs: string[];
   workflowFile: string;
   inputs: Record<string, InputEntry>;
   runStoreDir: string;

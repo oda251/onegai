@@ -10,7 +10,7 @@ import { resolveOutputRefs, extractRequiredOutputKeys } from "./output-resolver.
 
 interface StepContext {
   cwd: string;
-  skillsDir: string;
+  skillsDirs: string[];
   workflowFile?: string;
   workflow: Workflow;
   stepOutputs: Record<string, Record<string, string>>;
@@ -81,7 +81,7 @@ function executeRunStep(step: { run: string; id?: string }, ctx: StepContext): S
 }
 
 async function executeSkillStep(step: SkillStep, ctx: StepContext): Promise<StepResult> {
-  const skill = loadSkill(ctx.skillsDir, step.skill);
+  const skill = loadSkill(ctx.skillsDirs, step.skill);
 
   // Resolve input references from previous step outputs
   const resolvedInputs: Record<string, InputEntry> = {};

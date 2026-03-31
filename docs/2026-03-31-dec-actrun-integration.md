@@ -162,8 +162,16 @@ actrun のローカル Node action サポートが既に実装されているた
 
 **DAG 管理は actrun-mcp が持つ。** actrun は 1 job の steps を実行するだけ。actrun-mcp が `needs` を解決し、job ごとに `actrun workflow.yml --job <name>` を呼ぶ。これにより LLM が job 間に判断を挟めるようになる（全 job を一気に流す actrun の制約を回避）。
 
+## 決定事項（追加）
+
+**inputs/outputs の境界**:
+- メインエージェント → actrun-mcp: 構造化 inputs (plain/evidenced) + Intent Gate 検証
+- actrun-mcp → actrun: JSON 文字列化して GHA inputs として渡す
+- actrun 内 step 間: GHA 標準 outputs（actrun の責務、actrun-mcp は介在しない）
+- actrun → actrun-mcp (job 完了): string outputs を返す
+- actrun-mcp → actrun (次の job): needs 解決後、JSON 文字列で渡す
+
 ## 未決事項
 
-- actrun の job 間 outputs 伝播と構造化 inputs (plain/evidenced) の接続方法
 - actrun の `runs-on` フィールドの扱い（ローカル実行なので無視？）
 - actrun-mcp がワークフロー .yml をどこから読むか（skills/ ディレクトリ？.github/workflows/？）

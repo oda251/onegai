@@ -1,4 +1,4 @@
-import type { InputEntry, Citation } from "./types.js";
+import type { InputEntry, Citation } from "./types";
 
 export function buildWorkerPrompt(
   body: string,

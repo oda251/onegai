@@ -1,4 +1,4 @@
-import type { Workflow } from "./types.js";
+import type { Workflow } from "./types";
 
 export function getParallelBatches(workflow: Workflow): string[][] {
   const jobs = workflow.jobs;

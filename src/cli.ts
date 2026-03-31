@@ -2,11 +2,11 @@
 
 import { readFileSync, existsSync } from "node:fs";
 import { resolve, join } from "node:path";
-import { parseWorkflowFile } from "./workflow-parser.js";
-import { runWorkflow } from "./runner.js";
-import { inspectWorkflow } from "./inspect.js";
-import { resolveSkillsDirs, resolveWorkflowsDirs, findWorkflowFiles } from "./paths.js";
-import type { InputEntry } from "./types.js";
+import { parseWorkflowFile } from "./workflow-parser";
+import { runWorkflow } from "./runner";
+import { inspectWorkflow } from "./inspect";
+import { resolveSkillsDirs, resolveWorkflowsDirs, findWorkflowFiles } from "./paths";
+import type { InputEntry } from "./types";
 
 const args = process.argv.slice(2);
 const command = args[0];

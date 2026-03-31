@@ -3,11 +3,11 @@ import { readFileSync, existsSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { nanoid } from "nanoid";
 import { query, type PermissionMode } from "@anthropic-ai/claude-agent-sdk";
-import type { Step, SkillStep, StepResult, InputEntry, Workflow } from "./types.js";
-import { loadSkill } from "./skill-loader.js";
-import { buildWorkerPrompt } from "./prompt-builder.js";
-import { createDefaultVerifier, runIntentGate } from "./intent-gate.js";
-import { resolveOutputRefs, extractOutputKeys } from "./output-resolver.js";
+import type { Step, SkillStep, StepResult, InputEntry, Workflow } from "./types";
+import { loadSkill } from "./skill-loader";
+import { buildWorkerPrompt } from "./prompt-builder";
+import { createDefaultVerifier, runIntentGate } from "./intent-gate";
+import { resolveOutputRefs, extractOutputKeys } from "./output-resolver";
 
 interface StepContext {
   cwd: string;

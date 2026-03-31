@@ -2,7 +2,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import matter from "gray-matter";
 import * as v from "valibot";
-import type { Skill, InputSpec } from "./types.js";
+import type { Skill, InputSpec } from "./types";
 
 const InputSpecSchema = v.union([
   v.string(),

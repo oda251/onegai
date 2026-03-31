@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { ok, err, type Result } from "neverthrow";
-import type { Citation, EvidencedInput, InputEntry } from "./types.js";
+import type { Citation, EvidencedInput, InputEntry } from "./types";
 
 export interface VerificationResult {
   key: string;

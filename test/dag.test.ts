@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test";
-import { getParallelBatches } from "../src/dag.js";
-import type { Workflow } from "../src/types.js";
+import { getParallelBatches } from "../src/dag";
+import type { Workflow } from "../src/types";
 
 function makeWorkflow(jobs: Record<string, { needs?: string[] }>): Workflow {
   const wfJobs: Workflow["jobs"] = {};

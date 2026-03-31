@@ -1,7 +1,7 @@
-import { parseWorkflowFile } from "./workflow-parser.js";
-import { loadSkill } from "./skill-loader.js";
-import { extractOutputKeys } from "./output-resolver.js";
-import type { InputSpec } from "./types.js";
+import { parseWorkflowFile } from "./workflow-parser";
+import { loadSkill } from "./skill-loader";
+import { extractOutputKeys } from "./output-resolver";
+import type { InputSpec } from "./types";
 
 interface InspectResult {
   name: string;

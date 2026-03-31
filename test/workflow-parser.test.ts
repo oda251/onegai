@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { parseWorkflow } from "../src/workflow-parser.js";
+import { parseWorkflow } from "../src/workflow-parser";
 
 describe("parseWorkflow", () => {
   it("parses a simple workflow with run steps", () => {

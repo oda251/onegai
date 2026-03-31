@@ -1,9 +1,9 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { nanoid } from "nanoid";
-import type { Workflow, RunResult, JobResult, InputEntry } from "./types.js";
-import { getParallelBatches } from "./dag.js";
-import { executeStep } from "./executor.js";
+import type { Workflow, RunResult, JobResult, InputEntry } from "./types";
+import { getParallelBatches } from "./dag";
+import { executeStep } from "./executor";
 
 interface RunOptions {
   cwd: string;

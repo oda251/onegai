@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { createDefaultVerifier } from "../src/intent-gate.js";
-import type { EvidencedInput } from "../src/types.js";
+import { createDefaultVerifier } from "../src/intent-gate";
+import type { EvidencedInput } from "../src/types";
 
 let tmpDir: string;
 

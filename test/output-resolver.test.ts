@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { resolveOutputRefs, extractOutputKeys } from "../src/output-resolver.js";
+import { resolveOutputRefs, extractOutputKeys } from "../src/output-resolver";
 
 describe("resolveOutputRefs", () => {
   it("replaces step output references", () => {

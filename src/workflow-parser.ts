@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { parse as parseYaml } from "yaml";
 import * as v from "valibot";
-import type { Workflow, Job, Step, SkillStep, RunStep } from "./types.js";
+import type { Workflow, Job, Step, SkillStep, RunStep } from "./types";
 
 const SkillStepSchema = v.object({
   skill: v.string(),

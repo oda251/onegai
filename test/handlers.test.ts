@@ -163,7 +163,7 @@ describe("completeTask", () => {
     const data = result._unsafeUnwrap();
     expect(data.status).toBe("done");
     expect(data.output).toEqual({ summary: "JWT is good" });
-    expect(data.next).toBeUndefined();
+    expect(data.next).toHaveLength(0);
   });
 
   it("auto-starts next step on completion", () => {
@@ -184,14 +184,14 @@ describe("completeTask", () => {
     expect(result.isOk()).toBe(true);
     const data = result._unsafeUnwrap();
     expect(data.status).toBe("done");
-    const next = data.next;
-    expect(next).toBeDefined();
-    expect(next?.type).toBe("dev/review");
-    expect(next?.status).toBe("running");
-    expect(next?.prompt).toContain("modified src/auth.ts");
+    expect(data.next).toHaveLength(1);
+    const next = data.next[0];
+    expect(next.type).toBe("dev/review");
+    expect(next.status).toBe("running");
+    expect(next.prompt).toContain("modified src/auth.ts");
 
     // Verify next task in store
-    const nextTask = next ? store.get(next.taskId) : undefined;
+    const nextTask = store.get(next.taskId);
     expect(nextTask).toBeDefined();
     expect(nextTask?.type).toBe("dev/review");
     expect(nextTask?.chainParent).toBe(taskId);

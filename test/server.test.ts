@@ -288,14 +288,14 @@ Research.`,
     const doneData = parseText(doneResult);
     expect(doneData.status).toBe("done");
     expect(doneData.next).toBeDefined();
-    expect(doneData.next.type).toBe("dev/review");
-    expect(doneData.next.status).toBe("running");
-    expect(doneData.next.prompt).toContain("modified src/auth.ts");
+    expect(doneData.next[0].type).toBe("dev/review");
+    expect(doneData.next[0].status).toBe("running");
+    expect(doneData.next[0].prompt).toContain("modified src/auth.ts");
 
     // Complete the chained task
     const nextDone = await client.callTool({
       name: "done",
-      arguments: { taskId: doneData.next.taskId, output: {} },
+      arguments: { taskId: doneData.next[0].taskId, output: {} },
     });
     expect(parseText(nextDone).status).toBe("done");
     expect(parseText(nextDone).next).toBeUndefined();
@@ -537,7 +537,7 @@ Research.`,
     // Complete review (chain complete) → notification with ROOT task info
     await c.callTool({
       name: "done",
-      arguments: { taskId: doneResult.next.taskId, output: {} },
+      arguments: { taskId: doneResult.next[0].taskId, output: {} },
     });
 
     await new Promise((r) => setTimeout(r, 50));
@@ -622,25 +622,25 @@ Review the changes.`,
       }),
     );
     expect(planDone.next).toBeDefined();
-    expect(planDone.next.type).toBe("dev/impl");
+    expect(planDone.next[0].type).toBe("dev/impl");
     expect(notifications).toHaveLength(0);
 
     // Step 3: Complete impl → review auto-starts (needs changes output)
     const implDone = parseText(
       await c.callTool({
         name: "done",
-        arguments: { taskId: planDone.next.taskId, output: { changes: "src/auth.ts" } },
+        arguments: { taskId: planDone.next[0].taskId, output: { changes: "src/auth.ts" } },
       }),
     );
     expect(implDone.next).toBeDefined();
-    expect(implDone.next.type).toBe("dev/review");
+    expect(implDone.next[0].type).toBe("dev/review");
     expect(notifications).toHaveLength(0);
 
     // Step 4: Complete review → chain complete → notification
     const reviewDone = parseText(
       await c.callTool({
         name: "done",
-        arguments: { taskId: implDone.next.taskId, output: {} },
+        arguments: { taskId: implDone.next[0].taskId, output: {} },
       }),
     );
     expect(reviewDone.next).toBeUndefined();

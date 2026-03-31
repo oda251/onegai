@@ -72,7 +72,7 @@ export const DoneResponseSchema = v.object({
   ...TaskRefSchema.entries,
   status: v.literal("done"),
   output: v.record(v.string(), v.string()),
-  next: v.optional(ChainStepSchema),
+  next: v.optional(v.array(ChainStepSchema)),
 });
 
 export const RejectResponseSchema = v.object({

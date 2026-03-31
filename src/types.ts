@@ -9,7 +9,7 @@ export interface WorkflowFrontmatter {
   description: string;
   inputs: Record<string, InputSpec>;
   "confirm-before-run": boolean;
-  next?: string;
+  next?: string | string[];
   internal: boolean;
   tools?: string[];
   "permission-mode"?: string;
@@ -66,7 +66,7 @@ export interface Task {
   status: TaskStatus;
   output?: Record<string, string>;
   reason?: string;
-  next?: string;
+  next?: string | string[];
   chainParent?: string;
   group?: string;
   caller?: string;

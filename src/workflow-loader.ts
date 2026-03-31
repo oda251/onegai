@@ -18,7 +18,7 @@ const RawFrontmatterSchema = v.object({
   description: v.pipe(v.string(), v.minLength(1)),
   inputs: v.record(v.string(), InputSpecSchema),
   "confirm-before-run": v.optional(v.boolean(), false),
-  next: v.optional(v.string()),
+  next: v.optional(v.union([v.string(), v.array(v.string())])),
   internal: v.optional(v.boolean(), false),
   tools: v.optional(v.array(v.string())),
   "permission-mode": v.optional(v.string()),
@@ -34,6 +34,11 @@ function normalizeInputs(
       : val;
   }
   return result;
+}
+
+function toArray(val: string | string[] | undefined): string[] {
+  if (!val) return [];
+  return Array.isArray(val) ? val : [val];
 }
 
 export function parseWorkflow(
@@ -68,26 +73,29 @@ export function resolveOutputs(
   const errors: LintError[] = [];
 
   for (const [type, workflow] of workflows) {
-    const { next: nextName } = workflow.frontmatter;
-    if (!nextName) continue;
-
-    const nextType = `${workflow.domain}/${nextName}`;
-    const nextWorkflow = workflows.get(nextType);
-
-    if (!nextWorkflow) {
-      errors.push({
-        file: type,
-        message: `next "${nextName}" references non-existent workflow "${nextType}"`,
-      });
-      continue;
-    }
+    const nextNames = toArray(workflow.frontmatter.next);
+    if (nextNames.length === 0) continue;
 
     const currentInputKeys = new Set(
       Object.keys(workflow.frontmatter.inputs),
     );
-    for (const [key, spec] of Object.entries(nextWorkflow.frontmatter.inputs)) {
-      if (!currentInputKeys.has(key)) {
-        workflow.outputs[key] = spec.description;
+
+    for (const nextName of nextNames) {
+      const nextType = `${workflow.domain}/${nextName}`;
+      const nextWorkflow = workflows.get(nextType);
+
+      if (!nextWorkflow) {
+        errors.push({
+          file: type,
+          message: `next "${nextName}" references non-existent workflow "${nextType}"`,
+        });
+        continue;
+      }
+
+      for (const [key, spec] of Object.entries(nextWorkflow.frontmatter.inputs)) {
+        if (!currentInputKeys.has(key)) {
+          workflow.outputs[key] = spec.description;
+        }
       }
     }
   }
@@ -98,14 +106,15 @@ export function resolveOutputs(
 export function lintWorkflows(workflows: Map<string, Workflow>): LintError[] {
   const errors: LintError[] = [];
 
-  // Circular chains
+  // Circular chains (DFS)
   for (const [type, workflow] of workflows) {
     if (!workflow.frontmatter.next) continue;
 
     const visited = new Set<string>();
-    let current: string | undefined = type;
+    const stack = [type];
 
-    while (current) {
+    while (stack.length > 0) {
+      const current = stack.pop() as string;
       if (visited.has(current)) {
         errors.push({
           file: type,
@@ -115,16 +124,18 @@ export function lintWorkflows(workflows: Map<string, Workflow>): LintError[] {
       }
       visited.add(current);
       const w = workflows.get(current);
-      if (!w?.frontmatter.next) break;
-      current = `${w.domain}/${w.frontmatter.next}`;
+      if (!w) break;
+      for (const n of toArray(w.frontmatter.next)) {
+        stack.push(`${w.domain}/${n}`);
+      }
     }
   }
 
   // Orphaned internal workflows
   const referencedByNext = new Set<string>();
   for (const [, workflow] of workflows) {
-    if (workflow.frontmatter.next) {
-      referencedByNext.add(`${workflow.domain}/${workflow.frontmatter.next}`);
+    for (const n of toArray(workflow.frontmatter.next)) {
+      referencedByNext.add(`${workflow.domain}/${n}`);
     }
   }
 

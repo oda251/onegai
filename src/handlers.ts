@@ -17,22 +17,29 @@ export interface RunResult {
   prompt: string;
 }
 
+export interface NextStep {
+  taskId: string;
+  status: "running";
+  type: string;
+  prompt: string;
+}
+
 export interface DoneResult {
   task: Task;
   status: "done";
   output: Record<string, string>;
-  next?: {
-    taskId: string;
-    status: "running";
-    type: string;
-    prompt: string;
-  };
+  next: NextStep[];
 }
 
 export interface RejectResult {
   task: Task;
   status: "rejected";
   reason: string;
+}
+
+function toArray(val: string | string[] | undefined): string[] {
+  if (!val) return [];
+  return Array.isArray(val) ? val : [val];
 }
 
 function inputText(entry: InputEntry): string {
@@ -123,45 +130,41 @@ export function completeTask(
   }
 
   return store.complete(params.taskId, params.output).map(() => {
-    const result: DoneResult = {
-      task,
-      status: "done",
-      output: params.output,
-    };
+    const nextNames = toArray(workflow.frontmatter.next);
+    const next: NextStep[] = [];
 
-    // Auto-start next step in the chain
-    if (workflow.frontmatter.next) {
-      const nextType = `${workflow.domain}/${workflow.frontmatter.next}`;
+    for (const nextName of nextNames) {
+      const nextType = `${workflow.domain}/${nextName}`;
       const nextWorkflow = workflows.get(nextType);
-      if (nextWorkflow) {
-        const nextInputs: Record<string, InputEntry> = {};
-        for (const key of Object.keys(nextWorkflow.frontmatter.inputs)) {
-          if (key in params.output) {
-            nextInputs[key] = { type: "plain", value: params.output[key] };
-          } else if (key in task.inputs) {
-            nextInputs[key] = task.inputs[key];
-          }
+      if (!nextWorkflow) continue;
+
+      const nextInputs: Record<string, InputEntry> = {};
+      for (const key of Object.keys(nextWorkflow.frontmatter.inputs)) {
+        if (key in params.output) {
+          nextInputs[key] = { type: "plain", value: params.output[key] };
+        } else if (key in task.inputs) {
+          nextInputs[key] = task.inputs[key];
         }
-
-        const nextTask = store.create({
-          type: nextType,
-          title: task.title,
-          inputs: nextInputs,
-          next: nextWorkflow.frontmatter.next,
-          chainParent: params.taskId,
-          caller: task.caller,
-        });
-
-        result.next = {
-          taskId: nextTask.id,
-          status: "running",
-          type: nextType,
-          prompt: buildWorkerPrompt(nextWorkflow, nextInputs, nextTask.id, transcriptPath),
-        };
       }
+
+      const nextTask = store.create({
+        type: nextType,
+        title: task.title,
+        inputs: nextInputs,
+        next: nextWorkflow.frontmatter.next,
+        chainParent: params.taskId,
+        caller: task.caller,
+      });
+
+      next.push({
+        taskId: nextTask.id,
+        status: "running",
+        type: nextType,
+        prompt: buildWorkerPrompt(nextWorkflow, nextInputs, nextTask.id, transcriptPath),
+      });
     }
 
-    return result;
+    return { task, status: "done" as const, output: params.output, next };
   });
 }
 

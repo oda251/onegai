@@ -216,18 +216,21 @@ function configureMcpServer(server: Server, ctx: McpContext) {
         if (!parsed.success) return validationError(parsed.issues);
         return completeTask(workflows, store, parsed.output, transcriptStore.path).match(
           (data) => {
-            if (!data.next) notifyTaskResult(notifiers, store, data.task, "task.done", { output: data.output });
-            if (data.next && spawnWorker) {
-              const nextWf = workflows.get(data.next.type);
-              spawnWorker(data.next.prompt, data.next.taskId, {
-                tools: nextWf?.frontmatter.tools,
-                permissionMode: nextWf?.frontmatter["permission-mode"],
-              });
+            if (data.next.length === 0) notifyTaskResult(notifiers, store, data.task, "task.done", { output: data.output });
+            if (spawnWorker) {
+              for (const step of data.next) {
+                const nextWf = workflows.get(step.type);
+                spawnWorker(step.prompt, step.taskId, {
+                  tools: nextWf?.frontmatter.tools,
+                  permissionMode: nextWf?.frontmatter["permission-mode"],
+                });
+              }
             }
             notifyIfGroupSettled(notifiers, store, data.task);
             const dto: DoneResponse = {
               taskId: data.task.id, title: data.task.title,
-              status: data.status, output: data.output, next: data.next,
+              status: data.status, output: data.output,
+              next: data.next.length > 0 ? data.next : undefined,
             };
             return jsonResponse(dto);
           },

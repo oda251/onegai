@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { resolveOutputRefs, extractRequiredOutputKeys } from "../src/output-resolver.js";
+import { resolveOutputRefs, extractOutputKeys } from "../src/output-resolver.js";
 
 describe("resolveOutputRefs", () => {
   it("replaces step output references", () => {
@@ -40,7 +40,7 @@ describe("resolveOutputRefs", () => {
   });
 });
 
-describe("extractRequiredOutputKeys", () => {
+describe("extractOutputKeys", () => {
   it("extracts keys referenced by downstream steps", () => {
     const workflow = {
       jobs: {
@@ -56,7 +56,7 @@ describe("extractRequiredOutputKeys", () => {
         },
       },
     };
-    const keys = extractRequiredOutputKeys(workflow, "impl");
+    const keys = extractOutputKeys(workflow, "impl");
     expect(keys).toEqual(["changes"]);
   });
 
@@ -76,7 +76,7 @@ describe("extractRequiredOutputKeys", () => {
         },
       },
     };
-    const keys = extractRequiredOutputKeys(workflow, "impl");
+    const keys = extractOutputKeys(workflow, "impl");
     expect(keys.sort()).toEqual(["changes", "summary"]);
   });
 
@@ -88,7 +88,7 @@ describe("extractRequiredOutputKeys", () => {
         },
       },
     };
-    expect(extractRequiredOutputKeys(workflow, "impl")).toEqual([]);
+    expect(extractOutputKeys(workflow, "impl")).toEqual([]);
   });
 
   it("ignores references to other steps", () => {
@@ -102,6 +102,6 @@ describe("extractRequiredOutputKeys", () => {
         },
       },
     };
-    expect(extractRequiredOutputKeys(workflow, "impl")).toEqual([]);
+    expect(extractOutputKeys(workflow, "impl")).toEqual([]);
   });
 });

@@ -25,7 +25,7 @@ inputs:
 
 Do the work.`);
 
-    const skill = loadSkill(tmpDir, "dev/impl");
+    const skill = loadSkill([tmpDir], "dev/impl");
     expect(skill.name).toBe("impl");
     expect(skill.domain).toBe("dev");
     expect(skill.frontmatter.inputs.what).toEqual({ description: "Implementation details", type: "evidenced" });
@@ -44,7 +44,7 @@ inputs:
 
 Do it.`);
 
-    const skill = loadSkill(tmpDir, "dev/impl");
+    const skill = loadSkill([tmpDir], "dev/impl");
     expect(skill.frontmatter.inputs.what.type).toBe("evidenced");
     expect(skill.frontmatter.inputs.where.type).toBe("plain");
   });
@@ -54,22 +54,22 @@ Do it.`);
 provider: claude
 model: sonnet
 tools: [Read, Edit]
-permission-mode: auto
+permission-mode: default
 inputs:
   what: Details
 ---
 
 Work.`);
 
-    const skill = loadSkill(tmpDir, "dev/impl");
+    const skill = loadSkill([tmpDir], "dev/impl");
     expect(skill.frontmatter.provider).toBe("claude");
     expect(skill.frontmatter.model).toBe("sonnet");
     expect(skill.frontmatter.tools).toEqual(["Read", "Edit"]);
-    expect(skill.frontmatter["permission-mode"]).toBe("auto");
+    expect(skill.frontmatter["permission-mode"]).toBe("default");
   });
 
   it("throws for nonexistent skill", () => {
-    expect(() => loadSkill(tmpDir, "dev/nonexistent")).toThrow("Skill not found");
+    expect(() => loadSkill([tmpDir], "dev/nonexistent")).toThrow("Skill not found");
   });
 
   it("throws for invalid frontmatter", () => {
@@ -79,7 +79,7 @@ provider: claude
 
 No inputs.`);
 
-    expect(() => loadSkill(tmpDir, "dev/bad")).toThrow();
+    expect(() => loadSkill([tmpDir], "dev/bad")).toThrow();
   });
 
   it("loads skill with empty body", () => {
@@ -89,7 +89,7 @@ inputs:
 ---
 `);
 
-    const skill = loadSkill(tmpDir, "dev/empty");
+    const skill = loadSkill([tmpDir], "dev/empty");
     expect(skill.body).toBe("");
   });
 
@@ -107,7 +107,7 @@ echo hello
 
 Done.`);
 
-    const skill = loadSkill(tmpDir, "dev/code");
+    const skill = loadSkill([tmpDir], "dev/code");
     expect(skill.body).toContain("```bash");
     expect(skill.body).toContain("echo hello");
   });
@@ -120,7 +120,7 @@ inputs:
 
 Work.`);
 
-    const skill = loadSkill(tmpDir, "dev/minimal");
+    const skill = loadSkill([tmpDir], "dev/minimal");
     expect(skill.frontmatter.provider).toBeUndefined();
     expect(skill.frontmatter.model).toBeUndefined();
     expect(skill.frontmatter.tools).toBeUndefined();
@@ -137,7 +137,7 @@ inputs:
 
 Work.`);
 
-    expect(() => loadSkill(tmpDir, "dev/badtype")).toThrow();
+    expect(() => loadSkill([tmpDir], "dev/badtype")).toThrow();
   });
 
   it("loads skill with many inputs", () => {
@@ -153,7 +153,7 @@ inputs:
 
 Work.`);
 
-    const skill = loadSkill(tmpDir, "dev/many");
+    const skill = loadSkill([tmpDir], "dev/many");
     expect(Object.keys(skill.frontmatter.inputs)).toHaveLength(4);
     expect(skill.frontmatter.inputs.a.type).toBe("evidenced");
     expect(skill.frontmatter.inputs.c.type).toBe("plain");
@@ -168,7 +168,7 @@ inputs:
 
 Work.`);
 
-    const skill = loadSkill(tmpDir, "deep/nested/skill");
+    const skill = loadSkill([tmpDir], "deep/nested/skill");
     expect(skill.domain).toBe("deep");
     expect(skill.name).toBe("nested/skill");
   });
@@ -183,7 +183,7 @@ inputs:
 
 `);
 
-    const skill = loadSkill(tmpDir, "dev/ws");
+    const skill = loadSkill([tmpDir], "dev/ws");
     expect(skill.body).toBe("Work here.");
   });
 });

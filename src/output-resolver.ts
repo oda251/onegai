@@ -8,12 +8,14 @@ export function resolveOutputRefs(
   );
 }
 
-export function extractRequiredOutputKeys(
+export function extractOutputKeys(
   workflow: { jobs: Record<string, { steps: { id?: string; inputs?: Record<string, string> }[] }> },
-  stepId: string,
+  stepId?: string,
 ): string[] {
   const keys = new Set<string>();
-  const pattern = new RegExp(`\\$\\{\\{\\s*steps\\.${stepId}\\.outputs\\.(\\w+)\\s*\\}\\}`, "g");
+  const pattern = stepId
+    ? new RegExp(`\\$\\{\\{\\s*steps\\.${stepId}\\.outputs\\.(\\w+)\\s*\\}\\}`, "g")
+    : /\$\{\{\s*steps\.\w+\.outputs\.(\w+)\s*\}\}/g;
 
   for (const job of Object.values(workflow.jobs)) {
     for (const step of job.steps) {

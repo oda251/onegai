@@ -1,59 +1,29 @@
 import type { Workflow } from "./types.js";
 
-export function topologicalSort(workflow: Workflow): string[] {
+export function getParallelBatches(workflow: Workflow): string[][] {
   const jobs = workflow.jobs;
-  const inDegree: Record<string, number> = {};
-  const dependents: Record<string, string[]> = {};
+  const jobIds = Object.keys(jobs);
+  const jobCount = jobIds.length;
 
-  for (const id of Object.keys(jobs)) {
-    inDegree[id] = 0;
-    dependents[id] = [];
-  }
-
+  // Validate dependencies
   for (const [id, job] of Object.entries(jobs)) {
     for (const dep of job.needs) {
       if (!(dep in jobs)) throw new Error(`Job "${id}" depends on unknown job "${dep}"`);
-      inDegree[id]++;
-      dependents[dep].push(id);
     }
   }
 
-  const queue: string[] = [];
-  for (const [id, degree] of Object.entries(inDegree)) {
-    if (degree === 0) queue.push(id);
-  }
-
-  const sorted: string[] = [];
-  while (queue.length > 0) {
-    const current = queue.shift() as string;
-    sorted.push(current);
-    for (const dep of dependents[current]) {
-      inDegree[dep]--;
-      if (inDegree[dep] === 0) queue.push(dep);
-    }
-  }
-
-  if (sorted.length !== Object.keys(jobs).length) {
-    throw new Error("Circular dependency detected in jobs");
-  }
-
-  return sorted;
-}
-
-export function getParallelBatches(workflow: Workflow): string[][] {
-  const jobs = workflow.jobs;
   const done = new Set<string>();
   const batches: string[][] = [];
 
-  while (done.size < Object.keys(jobs).length) {
+  while (done.size < jobCount) {
     const batch: string[] = [];
-    for (const [id, job] of Object.entries(jobs)) {
+    for (const id of jobIds) {
       if (done.has(id)) continue;
-      if (job.needs.every((dep) => done.has(dep))) {
+      if (jobs[id].needs.every((dep) => done.has(dep))) {
         batch.push(id);
       }
     }
-    if (batch.length === 0) throw new Error("Circular dependency detected");
+    if (batch.length === 0) throw new Error("Circular dependency detected in jobs");
     for (const id of batch) done.add(id);
     batches.push(batch);
   }

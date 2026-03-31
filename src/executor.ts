@@ -1,12 +1,13 @@
 import { spawnSync } from "node:child_process";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
+import { nanoid } from "nanoid";
 import { query, type PermissionMode } from "@anthropic-ai/claude-agent-sdk";
 import type { Step, SkillStep, StepResult, InputEntry, Workflow } from "./types.js";
 import { loadSkill } from "./skill-loader.js";
 import { buildWorkerPrompt } from "./prompt-builder.js";
 import { createDefaultVerifier, runIntentGate } from "./intent-gate.js";
-import { resolveOutputRefs, extractRequiredOutputKeys } from "./output-resolver.js";
+import { resolveOutputRefs, extractOutputKeys } from "./output-resolver.js";
 
 interface StepContext {
   cwd: string;
@@ -15,6 +16,49 @@ interface StepContext {
   workflow: Workflow;
   stepOutputs: Record<string, Record<string, string>>;
   inputs: Record<string, InputEntry>;
+}
+
+function tempOutputPath(cwd: string): string {
+  return join(cwd, `.sidekick_output_${nanoid(8)}`);
+}
+
+function cleanupFile(path: string) {
+  try { unlinkSync(path); } catch { /* ignore */ }
+}
+
+function parseGithubOutput(outputFile: string): Record<string, string> {
+  if (!existsSync(outputFile)) return {};
+  const content = readFileSync(outputFile, "utf-8");
+  const outputs: Record<string, string> = {};
+
+  const heredocPattern = /^(\w+)<<(\S+)\n([\s\S]*?)\n\2$/gm;
+  let match;
+  while ((match = heredocPattern.exec(content)) !== null) {
+    outputs[match[1]] = match[3];
+  }
+
+  for (const line of content.split("\n")) {
+    if (line.includes("<<")) continue;
+    const eq = line.indexOf("=");
+    if (eq > 0) {
+      const key = line.slice(0, eq);
+      if (!(key in outputs)) outputs[key] = line.slice(eq + 1);
+    }
+  }
+
+  return outputs;
+}
+
+function failedStep(step: Step, error: string, outputs: Record<string, string> = {}): StepResult {
+  return { id: step.id, type: step.type, status: "failed", outputs, error };
+}
+
+function withOutputFile<T>(cwd: string, fn: (outputFile: string) => T): { result: T; outputs: Record<string, string> } {
+  const outputFile = tempOutputPath(cwd);
+  const result = fn(outputFile);
+  const outputs = parseGithubOutput(outputFile);
+  cleanupFile(outputFile);
+  return { result, outputs };
 }
 
 export async function executeStep(step: Step, ctx: StepContext): Promise<StepResult> {
@@ -26,55 +70,19 @@ export async function executeStep(step: Step, ctx: StepContext): Promise<StepRes
   }
 }
 
-function parseGithubOutput(outputFile: string): Record<string, string> {
-  if (!existsSync(outputFile)) return {};
-  const content = readFileSync(outputFile, "utf-8");
-  const outputs: Record<string, string> = {};
-
-  // Parse heredoc format: key<<delimiter\nvalue\ndelimiter
-  const heredocPattern = /^(\w+)<<(\S+)\n([\s\S]*?)\n\2$/gm;
-  let match;
-  while ((match = heredocPattern.exec(content)) !== null) {
-    outputs[match[1]] = match[3];
-  }
-
-  // Parse simple format: key=value
-  for (const line of content.split("\n")) {
-    if (line.includes("<<")) continue;
-    const eq = line.indexOf("=");
-    if (eq > 0) {
-      const key = line.slice(0, eq);
-      if (!(key in outputs)) {
-        outputs[key] = line.slice(eq + 1);
-      }
-    }
-  }
-
-  return outputs;
-}
-
-function executeRunStep(step: { run: string; id?: string }, ctx: StepContext): StepResult {
+function executeRunStep(step: Step & { type: "run" }, ctx: StepContext): StepResult {
   const resolved = resolveOutputRefs(step.run, ctx.stepOutputs);
-  const outputFile = join(ctx.cwd, `.sidekick_output_${Date.now()}`);
+  const { result: spawnResult, outputs } = withOutputFile(ctx.cwd, (outputFile) =>
+    spawnSync("sh", ["-c", resolved], {
+      cwd: ctx.cwd,
+      encoding: "utf-8",
+      timeout: 300_000,
+      env: { ...process.env, GITHUB_OUTPUT: outputFile },
+    }),
+  );
 
-  const result = spawnSync("sh", ["-c", resolved], {
-    cwd: ctx.cwd,
-    encoding: "utf-8",
-    timeout: 300_000,
-    env: { ...process.env, GITHUB_OUTPUT: outputFile },
-  });
-
-  const outputs = parseGithubOutput(outputFile);
-  try { spawnSync("rm", ["-f", outputFile]); } catch { /* ignore */ }
-
-  if (result.status !== 0) {
-    return {
-      id: step.id,
-      type: "run",
-      status: "failed",
-      outputs,
-      error: result.stderr || `exit ${result.status}`,
-    };
+  if (spawnResult.status !== 0) {
+    return failedStep(step, spawnResult.stderr || `exit ${spawnResult.status}`, outputs);
   }
 
   return { id: step.id, type: "run", status: "done", outputs };
@@ -83,19 +91,15 @@ function executeRunStep(step: { run: string; id?: string }, ctx: StepContext): S
 async function executeSkillStep(step: SkillStep, ctx: StepContext): Promise<StepResult> {
   const skill = loadSkill(ctx.skillsDirs, step.skill);
 
-  // Resolve input references from previous step outputs
   const resolvedInputs: Record<string, InputEntry> = {};
   if (step.inputs) {
     for (const [key, val] of Object.entries(step.inputs)) {
-      const resolved = resolveOutputRefs(val, ctx.stepOutputs);
-      resolvedInputs[key] = { type: "plain", value: resolved };
+      resolvedInputs[key] = { type: "plain", value: resolveOutputRefs(val, ctx.stepOutputs) };
     }
   }
 
-  // Merge with workflow-level inputs (for entry steps)
   const mergedInputs = { ...ctx.inputs, ...resolvedInputs };
 
-  // Validate inputs against skill declaration
   const errors: string[] = [];
   for (const [key, spec] of Object.entries(skill.frontmatter.inputs)) {
     if (!(key in mergedInputs)) {
@@ -107,44 +111,21 @@ async function executeSkillStep(step: SkillStep, ctx: StepContext): Promise<Step
     }
   }
   if (errors.length > 0) {
-    return {
-      id: step.id,
-      type: "skill",
-      status: "failed",
-      outputs: {},
-      error: `Invalid inputs: ${errors.join("; ")}`,
-    };
+    return failedStep(step, `Invalid inputs: ${errors.join("; ")}`);
   }
 
-  // Intent Gate
   const verifier = createDefaultVerifier();
   const gate = await runIntentGate(mergedInputs, verifier, process.env.TRANSCRIPT_PATH);
   if (gate.isErr()) {
-    return {
-      id: step.id,
-      type: "skill",
-      status: "failed",
-      outputs: {},
-      error: gate.error,
-    };
+    return failedStep(step, gate.error);
   }
 
-  // Determine required outputs from workflow wiring
-  const requiredOutputs = step.id
-    ? extractRequiredOutputKeys(ctx.workflow, step.id)
-    : [];
-
-  const prompt = buildWorkerPrompt(
-    skill.body,
-    mergedInputs,
-    requiredOutputs,
-    ctx.workflowFile,
-  );
+  const requiredOutputs = step.id ? extractOutputKeys(ctx.workflow, step.id) : [];
+  const prompt = buildWorkerPrompt(skill.body, mergedInputs, requiredOutputs, ctx.workflowFile);
 
   console.log(`[sidekick] Running skill: ${step.skill}`);
 
-  // Execute via Agent SDK
-  const outputFile = join(ctx.cwd, `.sidekick_output_${Date.now()}`);
+  const outputFile = tempOutputPath(ctx.cwd);
 
   try {
     for await (const message of query({
@@ -164,26 +145,15 @@ async function executeSkillStep(step: SkillStep, ctx: StepContext): Promise<Step
       }
     }
   } catch (e) {
-    return {
-      id: step.id,
-      type: "skill",
-      status: "failed",
-      outputs: {},
-      error: (e as Error).message,
-    };
+    cleanupFile(outputFile);
+    return failedStep(step, (e as Error).message);
   }
 
   const outputs = parseGithubOutput(outputFile);
-  try { spawnSync("rm", ["-f", outputFile]); } catch { /* ignore */ }
+  cleanupFile(outputFile);
 
   if (outputs.reject_reason) {
-    return {
-      id: step.id,
-      type: "skill",
-      status: "failed",
-      outputs,
-      error: `Rejected: ${outputs.reject_reason}`,
-    };
+    return failedStep(step, `Rejected: ${outputs.reject_reason}`, outputs);
   }
 
   return { id: step.id, type: "skill", status: "done", outputs };

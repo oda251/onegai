@@ -5,8 +5,7 @@ import { resolve, join } from "node:path";
 import { parseWorkflowFile } from "./workflow-parser.js";
 import { runWorkflow } from "./runner.js";
 import { inspectWorkflow } from "./inspect.js";
-import { resolveSkillsDirs } from "./skill-loader.js";
-import { resolveWorkflowsDirs, findWorkflowFiles } from "./paths.js";
+import { resolveSkillsDirs, resolveWorkflowsDirs, findWorkflowFiles } from "./paths.js";
 import type { InputEntry } from "./types.js";
 
 const args = process.argv.slice(2);
@@ -134,16 +133,16 @@ function handleView(viewArgs: string[]) {
 
 function handleWorkflows(wfArgs: string[]) {
   const cwd = process.cwd();
-  const skillsDirs = resolveSkillsDirs(cwd);
   const workflowDirs = resolveWorkflowsDirs(cwd);
   const files = findWorkflowFiles(workflowDirs);
-
   const isContext = wfArgs.includes("--context");
 
   if (files.length === 0) {
     if (!isContext) console.log("No workflows found.");
     return;
   }
+
+  const skillsDirs = resolveSkillsDirs(cwd);
 
   const lines: string[] = [];
   for (const file of files) {

@@ -46,7 +46,7 @@ jobs:
           changes: \${{ steps.impl.outputs.changes }}
 `);
 
-    const result = inspectWorkflow(wfPath, join(tmpDir, "skills"));
+    const result = inspectWorkflow(wfPath, [join(tmpDir, "skills")]);
     expect(result.name).toBe("Implement");
     expect(result.requiredInputs).toHaveLength(2);
 
@@ -77,7 +77,7 @@ jobs:
       - skill: dev/impl
 `);
 
-    const result = inspectWorkflow(wfPath, join(tmpDir, "skills"));
+    const result = inspectWorkflow(wfPath, [join(tmpDir, "skills")]);
     expect(result.requiredInputs).toHaveLength(1);
     expect(result.requiredInputs[0].key).toBe("what");
   });
@@ -92,7 +92,7 @@ jobs:
       - run: bun run lint
 `);
 
-    const result = inspectWorkflow(wfPath, join(tmpDir, "skills"));
+    const result = inspectWorkflow(wfPath, [join(tmpDir, "skills")]);
     expect(result.requiredInputs).toHaveLength(0);
   });
 
@@ -122,7 +122,7 @@ jobs:
       - skill: dev/review
 `);
 
-    const result = inspectWorkflow(wfPath, join(tmpDir, "skills"));
+    const result = inspectWorkflow(wfPath, [join(tmpDir, "skills")]);
     const keys = result.requiredInputs.map((i) => i.key);
     expect(keys.filter((k) => k === "what")).toHaveLength(1);
   });

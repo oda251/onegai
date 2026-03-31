@@ -1,23 +1,23 @@
 import { existsSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
 
 export function findRepoRoot(from: string): string | undefined {
   let dir = from;
-  while (dir !== "/") {
+  while (true) {
     if (existsSync(join(dir, ".git"))) return dir;
-    const parent = join(dir, "..");
+    const parent = dirname(dir);
     if (parent === dir) break;
     dir = parent;
   }
   return undefined;
 }
 
-export function resolveWorkflowsDirs(cwd: string): string[] {
+export function resolveClaudeDirs(cwd: string, subfolder: string): string[] {
   const repoRoot = findRepoRoot(cwd);
   const candidates = [
-    join(cwd, ".claude", "workflows"),
-    repoRoot ? join(repoRoot, ".claude", "workflows") : "",
-    join(process.env.HOME ?? "", ".claude", "workflows"),
+    join(cwd, ".claude", subfolder),
+    repoRoot ? join(repoRoot, ".claude", subfolder) : "",
+    join(process.env.HOME ?? "", ".claude", subfolder),
   ];
   const seen = new Set<string>();
   const dirs: string[] = [];
@@ -27,6 +27,14 @@ export function resolveWorkflowsDirs(cwd: string): string[] {
     if (existsSync(dir)) dirs.push(dir);
   }
   return dirs;
+}
+
+export function resolveWorkflowsDirs(cwd: string): string[] {
+  return resolveClaudeDirs(cwd, "workflows");
+}
+
+export function resolveSkillsDirs(cwd: string): string[] {
+  return resolveClaudeDirs(cwd, "skills");
 }
 
 export function findWorkflowFiles(dirs: string[]): string[] {

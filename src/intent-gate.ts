@@ -112,7 +112,11 @@ async function verifyUri(
 }
 
 function isFilePath(source: string): boolean {
-  return !source.startsWith("http://") && !source.startsWith("https://");
+  try {
+    return !URL.canParse(source);
+  } catch {
+    return true;
+  }
 }
 
 const TEXT_EXTENSIONS = new Set([

@@ -13,165 +13,93 @@ depends-on:
 
 ## 背景
 
-sidekick の jobs/steps アーキテクチャは GHA と同じ構造に行き着いた。[mizchi/actrun](https://github.com/mizchi/actrun) は GHA 互換のローカルランナーで、DAG 解決・コマンド実行・job 間データ伝播が実装済み。これをゼロから再実装するのは無駄。
+sidekick の jobs/steps アーキテクチャは GHA と同じ構造に行き着いた。[mizchi/actrun](https://github.com/mizchi/actrun) は GHA 互換のローカルランナーで、DAG 解決・コマンド実行・job 間データ伝播が実装済み。
 
-ただし actrun は MoonBit 製の CLI ツールで、MCP サーバーとして動作する仕組みがない。sidekick の価値（MCP 経由のタスク投入、Intent Gate、エージェント通知、LLM が job 間に判断を挟む）を actrun 単体では提供できない。
+## 方針: actrun フォーク + skill step
 
-## 方針: 2プロジェクト構成
+MCP サーバーは不要と判明。メインエージェントが Bash ツールで `actrun workflow.yml` を直接実行すれば、完了時に結果が返る。MCP を挟む理由がない。
 
-### actrun（既存）
-
-GHA 互換の実行エンジン。変更は最小限:
-
-- `skill:` step タイプの追加（ローカル Node action として実装）
-- actrun 本体の MoonBit コードは触らない
-
-### actrun-mcp（新規）
-
-TypeScript 製の MCP サーバー。sidekick の後継:
-
-- MCP サーバーとして常駐し、メインエージェントとワーカーの接続を管理
-- ワークフロー投入時に actrun CLI をサブプロセスで呼び、job を実行
-- Intent Gate（エビデンス検証）をステップ実行前に適用
-- タスクの状態管理、通知、永続化を担う
+### 構成
 
 ```
-メインエージェント ←MCP→ actrun-mcp (TypeScript)
-                              │
-                              ├─ actrun CLI (MoonBit) ← job の steps 実行
-                              │    ├─ run: step → シェルコマンド
-                              │    └─ uses: ./skill-action → Node action
-                              │         └─ Claude Agent SDK でワーカー起動
-                              │
-                              ├─ Intent Gate（エビデンス検証）
-                              ├─ タスク永続化（sqlite）
-                              └─ 通知（caller-scoped）
+メインエージェント
+  → Bash("actrun .claude/workflows/implement.yml")
+  → actrun が DAG 解決、job/step を順次実行
+    → run: step → シェルコマンド
+    → uses: ./actions/skill → Intent Gate + Claude Agent SDK
+  ← exit code + stdout（結果）
 ```
 
-## actrun への PR
+### actrun フォーク（oda251/actrun feat/skill-step）
 
-ローカル Node action として `skill-action` を提供する。actrun 本体の変更はゼロ。
+actrun に `actions/skill/` を同梱。ローカル Node action として:
 
-```
-actions/skill-action/
-  action.yml
-  index.js        # Claude Agent SDK + sidekick MCP client
-  package.json
-```
+- `.claude/skills/<name>.md` を読み、frontmatter からプロバイダ・モデル・ツール・outputs を取得
+- Intent Gate: evidenced inputs の citation を検証
+- Claude Agent SDK でワーカーを起動
+- GHA 標準 I/O: `INPUT_*` 環境変数 + `GITHUB_OUTPUT`
+
+### ワークフロー定義
+
+`.claude/workflows/` に GHA 互換の `.yml` を置く:
 
 ```yaml
-# action.yml
-name: sidekick-skill
-description: Execute a sidekick skill via Claude Agent SDK
-inputs:
-  skill:
-    description: Skill path (e.g. dev/impl)
-    required: true
-  inputs:
-    description: JSON-encoded task inputs
-    required: true
-  sidekick-url:
-    description: sidekick MCP server URL
-    default: http://127.0.0.1:4312/mcp
-runs:
-  using: node20
-  main: index.js
-```
-
-ワークフロー定義:
-
-```yaml
-# .github/workflows/implement.yml
-name: Implement feature
-on: workflow_call
-  inputs:
-    what:
-      description: What to implement
-    where:
-      description: Target file
-
 jobs:
   impl:
     runs-on: local
     steps:
-      - uses: ./actions/skill-action
+      - uses: ./actions/skill
+        id: impl
         with:
           skill: dev/impl
-          inputs: '${{ toJSON(inputs) }}'
-      - uses: ./actions/skill-action
+          inputs: '{"what": {"type": "evidenced", ...}, "where": {"type": "plain", ...}}'
+      - uses: ./actions/skill
         with:
           skill: dev/review
-          inputs: '${{ steps.impl.outputs.result }}'
-
+          inputs: '${{ steps.impl.outputs.changes }}'
   lint:
-    runs-on: local
     steps:
       - run: bun run lint
-
-  test:
-    runs-on: local
-    steps:
-      - run: bun test
-
   integrate:
-    needs: [impl, lint, test]
-    runs-on: local
+    needs: [impl, lint]
     steps:
-      - uses: ./actions/skill-action
-        with:
-          skill: dev/integrate
-          inputs: '${{ toJSON(needs) }}'
+      - run: echo "done"
 ```
 
-## actrun-mcp の MCP ツール
+### スキル定義
 
-| ツール | 説明 |
-|---|---|
-| workflows | 利用可能なワークフロー一覧（.yml から読み込み） |
-| run | ワークフローを投入。Intent Gate → actrun 起動 |
-| status | タスク状態の確認 |
-| done | ワーカーからの完了報告 |
-| reject | ワーカーからの差し戻し |
+`.claude/skills/<domain>/<name>.md`:
 
-## sidekick からの移行
+```yaml
+---
+provider: claude
+model: sonnet
+tools: [Read, Edit, Write]
+inputs:
+  what: 実装内容
+  where:
+    description: 対象ファイル
+    type: plain
+outputs:
+  changes: 変更したファイル一覧
+---
 
-| sidekick | actrun-mcp |
-|---|---|
-| スキル定義 (.md frontmatter + body) | step 定義 (.md) + workflow 定義 (.yml) |
-| `next` チェーン | job 内の `steps` 配列 |
-| `next: [a, b]` fan-out | 複数 job |
-| fan-in（未実装） | `needs` |
-| コマンド実行（未実装） | `run:` step（actrun が実行） |
-| DAG 解決（設計のみ） | actrun の DAG スケジューラ |
-| Intent Gate | そのまま移行 |
-| 構造化 inputs | そのまま移行 |
-| MCP サーバー | そのまま移行 |
-| エビデンス検証 | そのまま移行 |
-
-## actrun 側に求めるもの
-
-actrun 本体への変更は不要。PR で提供するのは:
-
-1. `actions/skill-action/` — ローカル Node action
-2. サンプルワークフロー — skill step を使った .yml
-3. ドキュメント — skill step の使い方
-
-actrun のローカル Node action サポートが既に実装されているため、これだけで動く。
+（ワーカーへの作業指示）
+```
 
 ## 決定事項
 
-**DAG 管理は actrun-mcp が持つ。** actrun は 1 job の steps を実行するだけ。actrun-mcp が `needs` を解決し、job ごとに `actrun workflow.yml --job <name>` を呼ぶ。これにより LLM が job 間に判断を挟めるようになる（全 job を一気に流す actrun の制約を回避）。
+- **MCP は不要**: メインエージェントが actrun CLI を直接叩く
+- **DAG は actrun に全委譲**: actrun がワークフロー全体を実行
+- **Intent Gate は skill action の責務**: citation 検証は step 実行前に行う
+- **I/O は GHA 標準**: `INPUT_*` / `GITHUB_OUTPUT` / exit code
+- **reject は `reject_reason` output + exit 1**: メインエージェントが `actrun run view --json` で理由を取得し、`--job --step` で途中再開
+- **ワークフロー配置**: `.claude/workflows/`
+- **スキル配置**: `.claude/skills/`
+- **transcript_path**: `TRANSCRIPT_PATH` 環境変数経由
 
-## 決定事項（追加）
+## 不要になったもの
 
-**ワークフロー配置**: `.claude/workflows/` に `.yml` を置く。actrun-mcp が読み込み、`actrun .claude/workflows/<file>.yml --job <name>` で actrun に渡す。
-
-**inputs/outputs の境界**:
-- メインエージェント → actrun-mcp: 構造化 inputs (plain/evidenced) + Intent Gate 検証
-- actrun-mcp → actrun: JSON 文字列化して GHA inputs として渡す
-- actrun 内 step 間: GHA 標準 outputs（actrun の責務、actrun-mcp は介在しない）
-- actrun → actrun-mcp (job 完了): string outputs を返す
-- actrun-mcp → actrun (次の job): needs 解決後、JSON 文字列で渡す
-
-## 未決事項
-
+- actrun-mcp（アーカイブ済み）
+- skill-action 独立リポジトリ（アーカイブ済み、actrun fork に同梱）
+- sidekick の MCP サーバー、タスクストア、DB、done/reject ツール

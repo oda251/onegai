@@ -173,5 +173,4 @@ actrun のローカル Node action サポートが既に実装されているた
 
 ## 未決事項
 
-- actrun の `runs-on` フィールドの扱い（ローカル実行なので無視？）
 - actrun-mcp がワークフロー .yml をどこから読むか（skills/ ディレクトリ？.github/workflows/？）

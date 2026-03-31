@@ -36,13 +36,16 @@ interface InputValue {
 }
 
 type Citation =
-  | { type: "transcript"; excerpt: string }              // sidekick が保持する transcript_path で解決
-  | { type: "uri"; source: string; excerpt: string }     // エージェントが URI を直接指定
+  | { type: "transcript"; excerpt: string }              // 環境変数 TRANSCRIPT_PATH で解決
+  | { type: "uri"; source: string; excerpt: string }     // ファイルパスまたは URL
+  | { type: "command"; command: string; excerpt: string } // コマンド実行結果
 ```
 
-**`transcript` 型**: エージェントは transcript のファイルパスを知らない。sidekick が `SessionStart` hook で受け取った `transcript_path` を使って解決する。エージェントは excerpt（抜粋）だけ渡せばよい。
+**`transcript` 型**: 会話履歴ファイル内の excerpt を検証する。パスは環境変数 `TRANSCRIPT_PATH` から取得。
 
 **`uri` 型**: ファイルパス、URL など、エージェントがソースの場所を知っている場合に使う。
+
+**`command` 型**: シェルコマンドの実行結果がエビデンスとなる場合。コマンド出力は揮発的なため、検証はスキップし素通しする。
 
 ### 例
 

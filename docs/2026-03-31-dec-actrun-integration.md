@@ -164,6 +164,8 @@ actrun のローカル Node action サポートが既に実装されているた
 
 ## 決定事項（追加）
 
+**ワークフロー配置**: `.claude/workflows/` に `.yml` を置く。actrun-mcp が読み込み、`actrun .claude/workflows/<file>.yml --job <name>` で actrun に渡す。
+
 **inputs/outputs の境界**:
 - メインエージェント → actrun-mcp: 構造化 inputs (plain/evidenced) + Intent Gate 検証
 - actrun-mcp → actrun: JSON 文字列化して GHA inputs として渡す
@@ -173,4 +175,3 @@ actrun のローカル Node action サポートが既に実装されているた
 
 ## 未決事項
 
-- actrun-mcp がワークフロー .yml をどこから読むか（skills/ ディレクトリ？.github/workflows/？）

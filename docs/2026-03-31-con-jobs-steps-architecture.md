@@ -81,19 +81,28 @@ jobs:
 
 | 現在 | 移行後 |
 |---|---|
-| `skills/dev/impl.md` (ワークフロー + step が一体) | `skills/dev/impl.md` は step 定義（ワーカーへの指示）のみ |
+| `skills/dev/impl.md` (ワークフロー + step が一体) | `skills/dev/impl.md` は step 定義（inputs + ワーカーへの指示） |
 | frontmatter の `next` | job 内の `steps` 配列で順序を表現 |
-| frontmatter の `inputs`, `description` | workflow 定義（`.yml`）に移動 |
+| frontmatter の `description`, `confirm-before-run` | workflow 定義（`.yml`）に移動 |
+| frontmatter の `internal` | 不要（job 内の step は全て内部的） |
+| frontmatter の `inputs`, `tools`, `permission-mode` | step .md にそのまま残る |
 | fan-out (`next: [a, b]`) | 複数 job で表現 |
 | fan-in (未実装) | `needs` で解決 |
 
 ### step 定義ファイル（.md）
 
-step 定義は今のスキル .md ファイルと同じ。ワーカーへの作業指示を本文に書く。ただし `inputs`, `description`, `next` は workflow .yml に移動するので、step の frontmatter は最小限:
+step 定義は今のスキル .md ファイルと同じ。ワーカーへの作業指示を本文に書く。`description`, `confirm-before-run`, `next` は workflow .yml に移動し、`internal` は不要になる。
 
 ```yaml
 # skills/dev/impl.md
 ---
+inputs:
+  what:
+    description: 実装内容
+    type: evidenced
+  where:
+    description: 対象ファイル
+    type: plain
 tools: [Read, Edit, Write, Bash]
 permission-mode: auto
 ---

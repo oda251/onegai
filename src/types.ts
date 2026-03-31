@@ -1,47 +1,25 @@
-export type InputType = "plain" | "evidenced";
+// --- Citation ---
 
-export interface InputSpec {
-  description: string;
-  type: InputType;
-}
-
-export interface WorkflowFrontmatter {
-  description: string;
-  inputs: Record<string, InputSpec>;
-  "confirm-before-run": boolean;
-  next?: string | string[];
-  internal: boolean;
-  tools?: string[];
-  "permission-mode"?: string;
-}
-
-export interface Workflow {
-  type: string;
-  domain: string;
-  name: string;
-  frontmatter: WorkflowFrontmatter;
-  body: string;
-  outputs: Record<string, string>;
-}
-
-export type TranscriptCitation = {
+export interface TranscriptCitation {
   type: "transcript";
   excerpt: string;
-};
+}
 
-export type UriCitation = {
+export interface UriCitation {
   type: "uri";
   source: string;
   excerpt: string;
-};
+}
 
-export type CommandCitation = {
+export interface CommandCitation {
   type: "command";
   command: string;
   excerpt: string;
-};
+}
 
 export type Citation = TranscriptCitation | UriCitation | CommandCitation;
+
+// --- Input ---
 
 export interface PlainInput {
   type: "plain";
@@ -56,26 +34,87 @@ export interface EvidencedInput {
 
 export type InputEntry = PlainInput | EvidencedInput;
 
-export type TaskStatus = "running" | "done" | "rejected";
+export type InputType = "plain" | "evidenced";
 
-export interface Task {
+export interface InputSpec {
+  description: string;
+  type: InputType;
+}
+
+// --- Skill ---
+
+export interface SkillFrontmatter {
+  provider?: string;
+  model?: string;
+  tools?: string[];
+  "permission-mode"?: string;
+  inputs: Record<string, InputSpec>;
+}
+
+export interface Skill {
+  name: string;
+  domain: string;
+  frontmatter: SkillFrontmatter;
+  body: string;
+}
+
+// --- Workflow ---
+
+export interface SkillStep {
+  type: "skill";
+  skill: string;
+  id?: string;
+  inputs?: Record<string, string>;
+}
+
+export interface RunStep {
+  type: "run";
+  run: string;
+  id?: string;
+}
+
+export type Step = SkillStep | RunStep;
+
+export interface Job {
   id: string;
-  type: string;
-  title: string;
-  inputs: Record<string, InputEntry>;
-  status: TaskStatus;
-  output?: Record<string, string>;
-  reason?: string;
-  next?: string | string[];
-  chainParent?: string;
-  group?: string;
-  caller?: string;
+  needs: string[];
+  steps: Step[];
 }
 
-export interface LintError {
-  file: string;
-  message: string;
+export interface Workflow {
+  name: string;
+  jobs: Record<string, Job>;
 }
+
+// --- Run Store ---
+
+export type StepStatus = "pending" | "running" | "done" | "failed" | "skipped";
+export type JobStatus = "pending" | "running" | "done" | "failed" | "skipped";
+
+export interface StepResult {
+  id?: string;
+  type: "skill" | "run";
+  status: StepStatus;
+  outputs: Record<string, string>;
+  error?: string;
+}
+
+export interface JobResult {
+  id: string;
+  status: JobStatus;
+  steps: StepResult[];
+}
+
+export interface RunResult {
+  id: string;
+  workflow: string;
+  status: "running" | "done" | "failed";
+  jobs: Record<string, JobResult>;
+  startedAt: string;
+  finishedAt?: string;
+}
+
+// --- Utility ---
 
 export function exhaustive(value: never): never {
   throw new Error(`Unhandled value: ${String(value)}`);

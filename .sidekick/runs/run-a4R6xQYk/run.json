@@ -1,0 +1,38 @@
+{
+  "id": "run-a4R6xQYk",
+  "workflow": ".claude/workflows/dev/implement.yml",
+  "status": "failed",
+  "jobs": {
+    "implement": {
+      "id": "implement",
+      "status": "failed",
+      "steps": [
+        {
+          "id": "impl",
+          "type": "skill",
+          "status": "failed",
+          "outputs": {},
+          "error": "Invalid inputs: missing: what; missing: where"
+        }
+      ]
+    },
+    "lint": {
+      "id": "lint",
+      "status": "done",
+      "steps": [
+        {
+          "type": "run",
+          "status": "done",
+          "outputs": {}
+        }
+      ]
+    },
+    "integrate": {
+      "id": "integrate",
+      "status": "skipped",
+      "steps": []
+    }
+  },
+  "startedAt": "2026-03-31T11:48:58.067Z",
+  "finishedAt": "2026-03-31T11:48:58.091Z"
+}

@@ -1,62 +1,47 @@
-import type { Workflow, InputEntry, Citation } from "./types.js";
+import type { InputEntry, Citation } from "./types.js";
 
 export function buildWorkerPrompt(
-  workflow: Workflow,
+  body: string,
   inputs: Record<string, InputEntry>,
-  taskId: string,
-  transcriptPath?: string,
+  requiredOutputs: string[],
+  workflowFile?: string,
 ): string {
-  const sections: string[] = [];
+  const sections = [
+    `## Task\n\n### Inputs\n\n${formatInputs(inputs)}`,
+  ];
 
-  // タスク
-  const inputLines = Object.entries(inputs)
-    .map(([key, entry]) => formatInput(key, entry, transcriptPath))
-    .join("\n\n");
-
-  let taskSection = `## タスク\n\nタスクID: ${taskId}\n\n### Inputs\n\n${inputLines}`;
-
-  if (Object.keys(workflow.outputs).length > 0) {
-    const outputLines = Object.entries(workflow.outputs)
-      .map(([key, desc]) => `- **${key}**: ${desc}`)
-      .join("\n");
-    taskSection += `\n\n### Outputs（完了時に返す）\n\n${outputLines}`;
+  if (requiredOutputs.length > 0) {
+    const outputLines = requiredOutputs.map((key) => `- **${key}**`).join("\n");
+    sections.push(`### Outputs\n\n完了時に以下を GITHUB_OUTPUT に書き込む:\n\necho "key=value" >> $GITHUB_OUTPUT\n\n${outputLines}`);
   }
 
-  sections.push(taskSection);
+  if (workflowFile) {
+    sections.push(`### Context\n\nWorkflow: \`${workflowFile}\``);
+  }
 
-  // ワークフロー
-  sections.push(`## ワークフロー\n\n${workflow.body}`);
-
-  // プロトコル
-  sections.push(`## プロトコル
-
-inputs が不十分なら作業を始めずに reject で差し戻す。
-作業が完了したら done で報告する。`);
+  sections.push(`## Workflow\n\n${body}`);
+  sections.push(`## Protocol\n\ninputs が不十分なら:\n  echo "reject_reason=理由" >> $GITHUB_OUTPUT\n  exit 1\n\n完了したら outputs を GITHUB_OUTPUT に書き込む。`);
 
   return sections.join("\n\n");
 }
 
-function formatInput(key: string, entry: InputEntry, transcriptPath?: string): string {
-  if (entry.type === "plain") {
-    return `- **${key}**: ${entry.value}`;
-  }
-
-  const lines = [`- **${key}**: ${entry.body}`];
-  for (const citation of entry.citations) {
-    const source = resolveSource(citation, transcriptPath);
-    if (citation.excerpt) {
-      lines.push(`  - 出典: \`${source}\` — "${citation.excerpt}"`);
-    } else {
-      lines.push(`  - 出典: \`${source}\``);
-    }
-  }
-  return lines.join("\n");
+function formatInputs(inputs: Record<string, InputEntry>): string {
+  return Object.entries(inputs)
+    .map(([key, entry]) => {
+      if (entry.type === "plain") return `- **${key}**: ${entry.value}`;
+      const lines = [`- **${key}**: ${entry.body}`];
+      for (const c of entry.citations) {
+        lines.push(`  - source: \`${citationSource(c)}\` — "${c.excerpt}"`);
+      }
+      return lines.join("\n");
+    })
+    .join("\n\n");
 }
 
-function resolveSource(citation: Citation, transcriptPath?: string): string {
-  if (citation.type === "transcript") {
-    return transcriptPath ?? "(transcript path not registered)";
+function citationSource(c: Citation): string {
+  switch (c.type) {
+    case "transcript": return "(transcript)";
+    case "command": return c.command;
+    case "uri": return c.source;
   }
-  return citation.source;
 }
-

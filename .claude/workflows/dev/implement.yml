@@ -1,0 +1,19 @@
+name: Implement and review
+
+jobs:
+  implement:
+    steps:
+      - skill: dev/impl
+        id: impl
+      - skill: dev/review
+        inputs:
+          changes: ${{ steps.impl.outputs.changes }}
+
+  lint:
+    steps:
+      - run: echo "lint passed"
+
+  integrate:
+    needs: [implement, lint]
+    steps:
+      - run: echo "All checks passed"

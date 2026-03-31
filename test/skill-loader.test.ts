@@ -81,4 +81,109 @@ No inputs.`);
 
     expect(() => loadSkill(tmpDir, "dev/bad")).toThrow();
   });
+
+  it("loads skill with empty body", () => {
+    writeFileSync(join(tmpDir, "dev/empty.md"), `---
+inputs:
+  what: Details
+---
+`);
+
+    const skill = loadSkill(tmpDir, "dev/empty");
+    expect(skill.body).toBe("");
+  });
+
+  it("preserves markdown body with code blocks", () => {
+    writeFileSync(join(tmpDir, "dev/code.md"), `---
+inputs:
+  what: Details
+---
+
+Run the following:
+
+\`\`\`bash
+echo hello
+\`\`\`
+
+Done.`);
+
+    const skill = loadSkill(tmpDir, "dev/code");
+    expect(skill.body).toContain("```bash");
+    expect(skill.body).toContain("echo hello");
+  });
+
+  it("handles skill without optional fields", () => {
+    writeFileSync(join(tmpDir, "dev/minimal.md"), `---
+inputs:
+  what: Details
+---
+
+Work.`);
+
+    const skill = loadSkill(tmpDir, "dev/minimal");
+    expect(skill.frontmatter.provider).toBeUndefined();
+    expect(skill.frontmatter.model).toBeUndefined();
+    expect(skill.frontmatter.tools).toBeUndefined();
+    expect(skill.frontmatter["permission-mode"]).toBeUndefined();
+  });
+
+  it("throws on invalid input type", () => {
+    writeFileSync(join(tmpDir, "dev/badtype.md"), `---
+inputs:
+  what:
+    description: Details
+    type: unknown
+---
+
+Work.`);
+
+    expect(() => loadSkill(tmpDir, "dev/badtype")).toThrow();
+  });
+
+  it("loads skill with many inputs", () => {
+    writeFileSync(join(tmpDir, "dev/many.md"), `---
+inputs:
+  a: First
+  b: Second
+  c:
+    description: Third
+    type: plain
+  d: Fourth
+---
+
+Work.`);
+
+    const skill = loadSkill(tmpDir, "dev/many");
+    expect(Object.keys(skill.frontmatter.inputs)).toHaveLength(4);
+    expect(skill.frontmatter.inputs.a.type).toBe("evidenced");
+    expect(skill.frontmatter.inputs.c.type).toBe("plain");
+  });
+
+  it("handles nested domain path", () => {
+    mkdirSync(join(tmpDir, "deep/nested"), { recursive: true });
+    writeFileSync(join(tmpDir, "deep/nested/skill.md"), `---
+inputs:
+  x: Value
+---
+
+Work.`);
+
+    const skill = loadSkill(tmpDir, "deep/nested/skill");
+    expect(skill.domain).toBe("deep");
+    expect(skill.name).toBe("nested/skill");
+  });
+
+  it("trims body whitespace", () => {
+    writeFileSync(join(tmpDir, "dev/ws.md"), `---
+inputs:
+  x: Value
+---
+
+  Work here.
+
+`);
+
+    const skill = loadSkill(tmpDir, "dev/ws");
+    expect(skill.body).toBe("Work here.");
+  });
 });

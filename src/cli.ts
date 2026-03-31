@@ -27,8 +27,8 @@ switch (command) {
   case "view":
     handleView(args.slice(1));
     break;
-  case "list":
-    handleList(args.slice(1));
+  case "workflows":
+    handleWorkflows(args.slice(1));
     break;
   default:
     if (command.endsWith(".yml")) {
@@ -132,13 +132,13 @@ function handleView(viewArgs: string[]) {
   }
 }
 
-function handleList(listArgs: string[]) {
+function handleWorkflows(wfArgs: string[]) {
   const cwd = process.cwd();
   const skillsDirs = resolveSkillsDirs(cwd);
   const workflowDirs = resolveWorkflowsDirs(cwd);
   const files = findWorkflowFiles(workflowDirs);
 
-  const isContext = listArgs.includes("--context");
+  const isContext = wfArgs.includes("--context");
 
   if (files.length === 0) {
     if (!isContext) console.log("No workflows found.");
@@ -173,7 +173,7 @@ function printUsage() {
 Commands:
   run <workflow.yml> [--input key=json]   Run a workflow
   inspect <workflow.yml>                  Show required inputs as JSON
-  list [--context]                        List available workflows
+  workflows [--context]                        List available workflows
   view <run-id> [--json]                  View run results
 
 Shorthand:

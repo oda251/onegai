@@ -55,3 +55,44 @@ function collectYml(dir: string, out: string[]) {
     }
   }
 }
+
+// --- Workflow resolver with in-memory cache ---
+
+interface CachedWorkflow {
+  absolute: string;
+  relative: string; // relative to its workflow dir, without .yml
+}
+
+let workflowCache: CachedWorkflow[] | undefined;
+
+export function clearWorkflowCache() {
+  workflowCache = undefined;
+}
+
+function getWorkflowCache(cwd: string): CachedWorkflow[] {
+  if (workflowCache) return workflowCache;
+  const dirs = resolveWorkflowsDirs(cwd);
+  const entries: CachedWorkflow[] = [];
+  for (const dir of dirs) {
+    const files = findWorkflowFiles([dir]);
+    for (const file of files) {
+      const rel = file.slice(dir.length + 1).replace(/\.yml$/, "");
+      entries.push({ absolute: file, relative: rel });
+    }
+  }
+  workflowCache = entries;
+  return entries;
+}
+
+export function resolveWorkflow(cwd: string, query: string): string | undefined {
+  const cache = getWorkflowCache(cwd);
+  const normalized = query.replace(/\.yml$/, "");
+  const suffix = `/${normalized}`;
+
+  let suffixMatch: CachedWorkflow | undefined;
+  for (const entry of cache) {
+    if (entry.relative === normalized) return entry.absolute;
+    if (!suffixMatch && entry.relative.endsWith(suffix)) suffixMatch = entry;
+  }
+  return suffixMatch?.absolute;
+}

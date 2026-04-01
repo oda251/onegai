@@ -20,7 +20,23 @@ export function buildWorkerPrompt(
   }
 
   sections.push(`## Workflow\n\n${body}`);
-  sections.push(`## Protocol\n\ninputs が不十分なら:\n  echo "reject_reason=理由" >> $GITHUB_OUTPUT\n  exit 1\n\n完了したら outputs を GITHUB_OUTPUT に書き込む。`);
+  sections.push(`## Protocol
+
+inputs が不十分なら:
+  echo "reject_reason=理由" >> $GITHUB_OUTPUT
+  exit 1
+
+完了したら outputs を GITHUB_OUTPUT に書き込む。
+
+plain 出力:
+  echo "key=value" >> $GITHUB_OUTPUT
+
+evidenced 出力（情報源がある場合は必ずこの形式を使う）:
+  cat >> $GITHUB_OUTPUT <<'OUTPUTEOF'
+  key<<EOF
+  {"type":"evidenced","body":"要約","citations":[{"type":"uri","source":"ファイルパスまたはURL","excerpt":"引用箇所"}]}
+  EOF
+  OUTPUTEOF`);
 
   return sections.join("\n\n");
 }

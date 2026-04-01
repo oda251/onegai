@@ -36,6 +36,8 @@ export type InputEntry = PlainInput | EvidencedInput;
 
 export type InputType = "plain" | "evidenced";
 
+export type CallerMode = "human" | "agent";
+
 export interface InputSpec {
   description: string;
   type: InputType;
@@ -95,7 +97,7 @@ export interface StepResult {
   id?: string;
   type: "skill" | "run";
   status: StepStatus;
-  outputs: Record<string, string>;
+  outputs: Record<string, InputEntry>;
   error?: string;
 }
 

@@ -16,16 +16,16 @@ export type EvidenceVerifier = (
 
 export function createDefaultVerifier(): EvidenceVerifier {
   return async (inputs, transcriptPath) => {
-    const results: VerificationResult[] = [];
+    const promises: Promise<VerificationResult>[] = [];
 
     for (const { key, entry } of Object.values(inputs)) {
       for (const citation of entry.citations) {
         if (!citation.excerpt) continue;
-        results.push(await verifyCitation(key, citation, transcriptPath));
+        promises.push(verifyCitation(key, citation, transcriptPath));
       }
     }
 
-    return results;
+    return Promise.all(promises);
   };
 }
 

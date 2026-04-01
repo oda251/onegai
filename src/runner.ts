@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { nanoid } from "nanoid";
-import type { Workflow, RunResult, JobResult, InputEntry } from "./types";
+import type { Workflow, RunResult, JobResult, CallerMode, InputEntry } from "./types";
 import { getParallelBatches } from "./dag";
 import { executeStep } from "./executor";
 
@@ -11,6 +11,7 @@ interface RunOptions {
   workflowFile: string;
   inputs: Record<string, InputEntry>;
   runStoreDir: string;
+  callerMode: CallerMode;
 }
 
 export async function runWorkflow(workflow: Workflow, options: RunOptions): Promise<RunResult> {
@@ -26,7 +27,7 @@ export async function runWorkflow(workflow: Workflow, options: RunOptions): Prom
   };
 
   const failedJobs = new Set<string>();
-  const stepOutputs: Record<string, Record<string, string>> = {};
+  const stepOutputs: Record<string, Record<string, InputEntry>> = {};
 
   for (const batch of batches) {
     const jobPromises = batch.map(async (jobId) => {
@@ -55,11 +56,11 @@ export async function runWorkflow(workflow: Workflow, options: RunOptions): Prom
           workflow,
           stepOutputs,
           inputs: options.inputs,
+          callerMode: options.callerMode,
         });
 
         jobResult.steps.push(stepResult);
 
-        // Store outputs keyed by step id
         if (stepResult.id && Object.keys(stepResult.outputs).length > 0) {
           stepOutputs[stepResult.id] = stepResult.outputs;
         }

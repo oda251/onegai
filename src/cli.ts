@@ -5,8 +5,9 @@ import { resolve, join } from "node:path";
 import { parseWorkflowFile } from "./workflow-parser";
 import { runWorkflow } from "./runner";
 import { inspectWorkflow } from "./inspect";
-import { resolveSkillsDirs, resolveWorkflowsDirs, findWorkflowFiles } from "./paths";
-import type { InputEntry } from "./types";
+import { resolveSkillsDirs, resolveWorkflowsDirs, findWorkflowFiles, resolveWorkflow } from "./paths";
+import { detectCallerMode } from "./env";
+import type { InputEntry, RunResult } from "./types";
 
 const args = process.argv.slice(2);
 const command = args[0];
@@ -30,18 +31,13 @@ switch (command) {
     handleWorkflows(args.slice(1));
     break;
   default:
-    if (command.endsWith(".yml")) {
-      await handleRun(args);
-    } else {
-      console.error(`Unknown command: ${command}`);
-      process.exit(1);
-    }
+    await handleRun(args);
 }
 
 async function handleRun(runArgs: string[]) {
-  const workflowPath = runArgs[0];
-  if (!workflowPath) {
-    console.error("Usage: onegai run <workflow.yml> [--input key=json]");
+  const workflowArg = runArgs[0];
+  if (!workflowArg) {
+    console.error("Usage: onegai run <workflow> [--input key=json]");
     process.exit(1);
   }
 
@@ -66,9 +62,15 @@ async function handleRun(runArgs: string[]) {
   const skillsDirs = resolveSkillsDirs(cwd);
   const runStoreDir = resolve(cwd, ".onegai", "runs");
 
-  const workflow = parseWorkflowFile(resolve(cwd, workflowPath));
+  const workflowPath = resolveWorkflow(cwd, workflowArg);
+  if (!workflowPath) {
+    console.error(`Workflow not found: ${workflowArg}`);
+    process.exit(1);
+  }
+  const workflow = parseWorkflowFile(workflowPath);
+  const callerMode = detectCallerMode();
 
-  console.log(`[onegai] Running workflow: ${workflow.name || workflowPath}`);
+  console.log(`[onegai] Running workflow: ${workflow.name || workflowArg}`);
 
   const result = await runWorkflow(workflow, {
     cwd,
@@ -76,6 +78,7 @@ async function handleRun(runArgs: string[]) {
     workflowFile: workflowPath,
     inputs,
     runStoreDir,
+    callerMode,
   });
 
   console.log(`[onegai] Workflow ${result.status}: ${result.id}`);
@@ -111,9 +114,8 @@ function handleView(viewArgs: string[]) {
     process.exit(1);
   }
 
-  const data = JSON.parse(readFileSync(runPath, "utf-8"));
-  const json = viewArgs.includes("--json");
-  if (json) {
+  const data: RunResult = JSON.parse(readFileSync(runPath, "utf-8"));
+  if (viewArgs.includes("--json")) {
     console.log(JSON.stringify(data, null, 2));
   } else {
     console.log(`Run: ${data.id}`);
@@ -121,7 +123,7 @@ function handleView(viewArgs: string[]) {
     console.log(`Workflow: ${data.workflow}`);
     console.log(`Started: ${data.startedAt}`);
     if (data.finishedAt) console.log(`Finished: ${data.finishedAt}`);
-    for (const [jobId, job] of Object.entries(data.jobs) as [string, { status: string; steps: { type: string; status: string; error?: string }[] }][]) {
+    for (const [jobId, job] of Object.entries(data.jobs)) {
       console.log(`\n  Job: ${jobId} (${job.status})`);
       for (const step of job.steps) {
         const marker = step.status === "done" ? "✓" : step.status === "failed" ? "✗" : "○";

@@ -47,8 +47,9 @@ export function loadSkill(skillsDirs: string[], skillName: string): Skill {
     inputs[key] = normalizeInputSpec(val);
   }
 
-  const domain = skillName.includes("/") ? skillName.split("/")[0] : "";
-  const name = skillName.includes("/") ? skillName.split("/").slice(1).join("/") : skillName;
+  const slashIdx = skillName.indexOf("/");
+  const domain = slashIdx >= 0 ? skillName.slice(0, slashIdx) : "";
+  const name = slashIdx >= 0 ? skillName.slice(slashIdx + 1) : skillName;
 
   return {
     name,

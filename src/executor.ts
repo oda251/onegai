@@ -1,21 +1,22 @@
 import { spawnSync } from "node:child_process";
-import { readFileSync, existsSync, unlinkSync } from "node:fs";
+import { readFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { nanoid } from "nanoid";
 import { query, type PermissionMode } from "@anthropic-ai/claude-agent-sdk";
-import type { Step, SkillStep, StepResult, InputEntry, Workflow } from "./types";
+import type { Step, SkillStep, StepResult, InputEntry, Workflow, CallerMode } from "./types";
 import { loadSkill } from "./skill-loader";
 import { buildWorkerPrompt } from "./prompt-builder";
 import { createDefaultVerifier, runIntentGate } from "./intent-gate";
-import { resolveOutputRefs, extractOutputKeys } from "./output-resolver";
+import { resolveOutputRefs, resolveOutputRefsTyped, extractOutputKeys } from "./output-resolver";
 
 interface StepContext {
   cwd: string;
   skillsDirs: string[];
   workflowFile?: string;
   workflow: Workflow;
-  stepOutputs: Record<string, Record<string, string>>;
+  stepOutputs: Record<string, Record<string, InputEntry>>;
   inputs: Record<string, InputEntry>;
+  callerMode: CallerMode;
 }
 
 function tempOutputPath(cwd: string): string {
@@ -26,15 +27,29 @@ function cleanupFile(path: string) {
   try { unlinkSync(path); } catch { /* ignore */ }
 }
 
-function parseGithubOutput(outputFile: string): Record<string, string> {
-  if (!existsSync(outputFile)) return {};
-  const content = readFileSync(outputFile, "utf-8");
-  const outputs: Record<string, string> = {};
+export function tryParseEvidenced(raw: string): InputEntry {
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed?.type === "evidenced" && typeof parsed.body === "string" && Array.isArray(parsed.citations)) {
+      return { type: "evidenced", body: parsed.body, citations: parsed.citations };
+    }
+  } catch { /* not JSON or not evidenced */ }
+  return { type: "plain", value: raw };
+}
+
+function parseGithubOutput(outputFile: string): Record<string, InputEntry> {
+  let content: string;
+  try {
+    content = readFileSync(outputFile, "utf-8");
+  } catch {
+    return {};
+  }
+  const outputs: Record<string, InputEntry> = {};
 
   const heredocPattern = /^(\w+)<<(\S+)\n([\s\S]*?)\n\2$/gm;
   let match;
   while ((match = heredocPattern.exec(content)) !== null) {
-    outputs[match[1]] = match[3];
+    outputs[match[1]] = tryParseEvidenced(match[3]);
   }
 
   for (const line of content.split("\n")) {
@@ -42,14 +57,14 @@ function parseGithubOutput(outputFile: string): Record<string, string> {
     const eq = line.indexOf("=");
     if (eq > 0) {
       const key = line.slice(0, eq);
-      if (!(key in outputs)) outputs[key] = line.slice(eq + 1);
+      if (!(key in outputs)) outputs[key] = { type: "plain", value: line.slice(eq + 1) };
     }
   }
 
   return outputs;
 }
 
-function failedStep(step: Step, error: string, outputs: Record<string, string> = {}): StepResult {
+function failedStep(step: Step, error: string, outputs: Record<string, InputEntry> = {}): StepResult {
   return { id: step.id, type: step.type, status: "failed", outputs, error };
 }
 
@@ -71,7 +86,7 @@ function logWorkerMessage(skill: string, message: any) {
   }
 }
 
-function withOutputFile<T>(cwd: string, fn: (outputFile: string) => T): { result: T; outputs: Record<string, string> } {
+function withOutputFile<T>(cwd: string, fn: (outputFile: string) => T): { result: T; outputs: Record<string, InputEntry> } {
   const outputFile = tempOutputPath(cwd);
   const result = fn(outputFile);
   const outputs = parseGithubOutput(outputFile);
@@ -112,7 +127,9 @@ async function executeSkillStep(step: SkillStep, ctx: StepContext): Promise<Step
   const resolvedInputs: Record<string, InputEntry> = {};
   if (step.inputs) {
     for (const [key, val] of Object.entries(step.inputs)) {
-      resolvedInputs[key] = { type: "plain", value: resolveOutputRefs(val, ctx.stepOutputs) };
+      const resolved = resolveOutputRefsTyped(val, ctx.stepOutputs);
+      if (!resolved.ok) return failedStep(step, `${key}: ${resolved.error}`);
+      resolvedInputs[key] = resolved.entry;
     }
   }
 
@@ -124,7 +141,7 @@ async function executeSkillStep(step: SkillStep, ctx: StepContext): Promise<Step
       errors.push(`missing: ${key}`);
       continue;
     }
-    if (mergedInputs[key].type !== spec.type) {
+    if (ctx.callerMode === "agent" && mergedInputs[key].type !== spec.type) {
       errors.push(`${key}: expected ${spec.type}, got ${mergedInputs[key].type}`);
     }
   }
@@ -132,10 +149,9 @@ async function executeSkillStep(step: SkillStep, ctx: StepContext): Promise<Step
     return failedStep(step, `Invalid inputs: ${errors.join("; ")}`);
   }
 
-  const verifier = createDefaultVerifier();
-  const gate = await runIntentGate(mergedInputs, verifier, process.env.TRANSCRIPT_PATH);
-  if (gate.isErr()) {
-    return failedStep(step, gate.error);
+  if (ctx.callerMode === "agent") {
+    const gate = await runIntentGate(mergedInputs, createDefaultVerifier(), process.env.TRANSCRIPT_PATH);
+    if (gate.isErr()) return failedStep(step, gate.error);
   }
 
   const requiredOutputs = step.id ? extractOutputKeys(ctx.workflow, step.id) : [];
@@ -171,8 +187,10 @@ async function executeSkillStep(step: SkillStep, ctx: StepContext): Promise<Step
   const outputs = parseGithubOutput(outputFile);
   cleanupFile(outputFile);
 
-  if (outputs.reject_reason) {
-    return failedStep(step, `Rejected: ${outputs.reject_reason}`, outputs);
+  const rejectEntry = outputs.reject_reason;
+  if (rejectEntry) {
+    const reason = rejectEntry.type === "plain" ? rejectEntry.value : rejectEntry.body;
+    return failedStep(step, `Rejected: ${reason}`, outputs);
   }
 
   return { id: step.id, type: "skill", status: "done", outputs };

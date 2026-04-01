@@ -53,7 +53,7 @@ function failedStep(step: Step, error: string, outputs: Record<string, string> =
   return { id: step.id, type: step.type, status: "failed", outputs, error };
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: SDK message is untyped
+// oxlint-disable-next-line no-explicit-any -- SDK message is untyped
 function logWorkerMessage(skill: string, message: any) {
   const prefix = `[sidekick:${skill}]`;
   if (message.type === "assistant" && message.message?.content) {

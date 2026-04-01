@@ -59,7 +59,7 @@ inputs:
 ## Install
 
 ```bash
-npm install -g onegai
+npm install -g @onegai/cli
 ```
 
 For development:

@@ -45,7 +45,7 @@ export async function runWorkflow(workflow: Workflow, options: RunOptions): Prom
       const jobResult: JobResult = { id: jobId, status: "running", steps: [] };
       result.jobs[jobId] = jobResult;
 
-      console.log(`[sidekick] Starting job: ${jobId}`);
+      console.log(`[saihai] Starting job: ${jobId}`);
 
       for (const step of job.steps) {
         const stepResult = await executeStep(step, {
@@ -67,14 +67,14 @@ export async function runWorkflow(workflow: Workflow, options: RunOptions): Prom
         if (stepResult.status === "failed") {
           jobResult.status = "failed";
           failedJobs.add(jobId);
-          console.error(`[sidekick] Step failed in job ${jobId}: ${stepResult.error}`);
+          console.error(`[saihai] Step failed in job ${jobId}: ${stepResult.error}`);
           break;
         }
       }
 
       if (jobResult.status === "running") {
         jobResult.status = "done";
-        console.log(`[sidekick] Job completed: ${jobId}`);
+        console.log(`[saihai] Job completed: ${jobId}`);
       }
     });
 

@@ -7,7 +7,7 @@ import { loadSkill } from "../src/skill-loader";
 let tmpDir: string;
 
 beforeEach(() => {
-  tmpDir = mkdtempSync(join(tmpdir(), "sidekick-skill-test-"));
+  tmpDir = mkdtempSync(join(tmpdir(), "saihai-skill-test-"));
   mkdirSync(join(tmpDir, "dev"), { recursive: true });
 });
 

@@ -8,7 +8,7 @@ import type { EvidencedInput } from "../src/types";
 let tmpDir: string;
 
 beforeEach(() => {
-  tmpDir = mkdtempSync(join(tmpdir(), "sidekick-evidence-test-"));
+  tmpDir = mkdtempSync(join(tmpdir(), "saihai-evidence-test-"));
 });
 
 afterEach(() => {

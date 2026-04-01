@@ -1,0 +1,19 @@
+name: Hello workflow
+
+jobs:
+  greet:
+    steps:
+      - skill: demo/greet
+        id: greet
+      - skill: demo/shout
+        inputs:
+          greeting: ${{ steps.greet.outputs.greeting }}
+
+  log:
+    steps:
+      - run: echo "Log job done"
+
+  finish:
+    needs: [greet, log]
+    steps:
+      - run: echo "All done!"

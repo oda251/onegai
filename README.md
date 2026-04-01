@@ -51,7 +51,18 @@ inputs:
 - **Progressive disclosure**: Workers receive only what they need. Process isolation prevents context leakage.
 - **Declarative workflows**: Jobs, steps, and dependencies defined in YAML. No code changes to add workflows.
 
+## Prerequisites
+
+- [Claude Code](https://claude.ai/code) CLI installed and authenticated
+- Node.js >= 20
+
 ## Install
+
+```bash
+npm install -g agent-sidekick
+```
+
+For development:
 
 ```bash
 bun install

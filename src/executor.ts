@@ -53,6 +53,24 @@ function failedStep(step: Step, error: string, outputs: Record<string, string> =
   return { id: step.id, type: step.type, status: "failed", outputs, error };
 }
 
+// biome-ignore lint/suspicious/noExplicitAny: SDK message is untyped
+function logWorkerMessage(skill: string, message: any) {
+  const prefix = `[sidekick:${skill}]`;
+  if (message.type === "assistant" && message.message?.content) {
+    for (const block of message.message.content) {
+      if (block.type === "text" && block.text) {
+        console.log(`${prefix} ${block.text}`);
+      } else if (block.type === "tool_use") {
+        console.log(`${prefix} tool: ${block.name}${block.input?.command ? ` — ${block.input.command}` : ""}`);
+      }
+    }
+  } else if (message.type === "result") {
+    if (message.is_error) {
+      console.error(`${prefix} error: ${message.result}`);
+    }
+  }
+}
+
 function withOutputFile<T>(cwd: string, fn: (outputFile: string) => T): { result: T; outputs: Record<string, string> } {
   const outputFile = tempOutputPath(cwd);
   const result = fn(outputFile);
@@ -137,9 +155,10 @@ async function executeSkillStep(step: SkillStep, ctx: StepContext): Promise<Step
         permissionMode: (skill.frontmatter["permission-mode"] ?? "default") as PermissionMode,
         allowDangerouslySkipPermissions: true,
         maxTurns: 50,
-        env: { GITHUB_OUTPUT: outputFile },
+        env: { ...process.env, GITHUB_OUTPUT: outputFile },
       },
     })) {
+      logWorkerMessage(step.skill, message);
       if ("result" in message) {
         console.log(`[sidekick] Skill completed: ${step.skill}`);
       }

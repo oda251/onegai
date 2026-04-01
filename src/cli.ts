@@ -41,7 +41,7 @@ switch (command) {
 async function handleRun(runArgs: string[]) {
   const workflowPath = runArgs[0];
   if (!workflowPath) {
-    console.error("Usage: saihai run <workflow.yml> [--input key=json]");
+    console.error("Usage: onegai run <workflow.yml> [--input key=json]");
     process.exit(1);
   }
 
@@ -64,11 +64,11 @@ async function handleRun(runArgs: string[]) {
 
   const cwd = process.cwd();
   const skillsDirs = resolveSkillsDirs(cwd);
-  const runStoreDir = resolve(cwd, ".saihai", "runs");
+  const runStoreDir = resolve(cwd, ".onegai", "runs");
 
   const workflow = parseWorkflowFile(resolve(cwd, workflowPath));
 
-  console.log(`[saihai] Running workflow: ${workflow.name || workflowPath}`);
+  console.log(`[onegai] Running workflow: ${workflow.name || workflowPath}`);
 
   const result = await runWorkflow(workflow, {
     cwd,
@@ -78,7 +78,7 @@ async function handleRun(runArgs: string[]) {
     runStoreDir,
   });
 
-  console.log(`[saihai] Workflow ${result.status}: ${result.id}`);
+  console.log(`[onegai] Workflow ${result.status}: ${result.id}`);
   if (result.status === "failed") {
     process.exit(1);
   }
@@ -87,7 +87,7 @@ async function handleRun(runArgs: string[]) {
 function handleInspect(inspectArgs: string[]) {
   const workflowPath = inspectArgs[0];
   if (!workflowPath) {
-    console.error("Usage: saihai inspect <workflow.yml>");
+    console.error("Usage: onegai inspect <workflow.yml>");
     process.exit(1);
   }
 
@@ -101,11 +101,11 @@ function handleInspect(inspectArgs: string[]) {
 function handleView(viewArgs: string[]) {
   const runId = viewArgs[0];
   if (!runId) {
-    console.error("Usage: saihai view <run-id>");
+    console.error("Usage: onegai view <run-id>");
     process.exit(1);
   }
 
-  const runPath = join(process.cwd(), ".saihai", "runs", runId, "run.json");
+  const runPath = join(process.cwd(), ".onegai", "runs", runId, "run.json");
   if (!existsSync(runPath)) {
     console.error(`Run not found: ${runId}`);
     process.exit(1);
@@ -167,7 +167,7 @@ function handleWorkflows(wfArgs: string[]) {
 }
 
 function printUsage() {
-  console.log(`saihai - Declarative workflow orchestrator for AI agents
+  console.log(`onegai - Declarative workflow orchestrator for AI agents
 
 Commands:
   run <workflow.yml> [--input key=json]   Run a workflow
@@ -176,5 +176,5 @@ Commands:
   view <run-id> [--json]                  View run results
 
 Shorthand:
-  saihai <workflow.yml>                 Same as saihai run`);
+  onegai <workflow.yml>                 Same as onegai run`);
 }

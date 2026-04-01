@@ -12,7 +12,12 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
 
       - uses: oven-sh/setup-bun@v2
 
@@ -26,10 +31,5 @@ jobs:
 
       - name: Generate third-party license notices
         run: npx license-checker --production --json > /tmp/licenses.json && node scripts/gen-licenses.js
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          registry-url: https://registry.npmjs.org
 
       - run: npm publish --provenance --access public

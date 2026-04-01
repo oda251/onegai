@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "saihai",
+      "name": "onegai",
       "dependencies": {
         "@anthropic-ai/claude-agent-sdk": "^0.2.87",
         "gray-matter": "^4.0.3",

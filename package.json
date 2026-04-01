@@ -1,5 +1,5 @@
 {
-  "name": "saihai",
+  "name": "@onegai/cli",
   "version": "0.1.0",
   "description": "Declarative workflow orchestrator for AI agents",
   "license": "Apache-2.0",
@@ -19,7 +19,7 @@
   },
   "type": "module",
   "bin": {
-    "saihai": "./dist/cli.js"
+    "onegai": "./dist/cli.js"
   },
   "files": [
     "dist",

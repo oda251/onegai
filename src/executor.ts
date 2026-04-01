@@ -19,7 +19,7 @@ interface StepContext {
 }
 
 function tempOutputPath(cwd: string): string {
-  return join(cwd, `.saihai_output_${nanoid(8)}`);
+  return join(cwd, `.onegai_output_${nanoid(8)}`);
 }
 
 function cleanupFile(path: string) {
@@ -55,7 +55,7 @@ function failedStep(step: Step, error: string, outputs: Record<string, string> =
 
 // oxlint-disable-next-line no-explicit-any -- SDK message is untyped
 function logWorkerMessage(skill: string, message: any) {
-  const prefix = `[saihai:${skill}]`;
+  const prefix = `[onegai:${skill}]`;
   if (message.type === "assistant" && message.message?.content) {
     for (const block of message.message.content) {
       if (block.type === "text" && block.text) {
@@ -141,7 +141,7 @@ async function executeSkillStep(step: SkillStep, ctx: StepContext): Promise<Step
   const requiredOutputs = step.id ? extractOutputKeys(ctx.workflow, step.id) : [];
   const prompt = buildWorkerPrompt(skill.body, mergedInputs, requiredOutputs, ctx.workflowFile);
 
-  console.log(`[saihai] Running skill: ${step.skill}`);
+  console.log(`[onegai] Running skill: ${step.skill}`);
 
   const outputFile = tempOutputPath(ctx.cwd);
 
@@ -160,7 +160,7 @@ async function executeSkillStep(step: SkillStep, ctx: StepContext): Promise<Step
     })) {
       logWorkerMessage(step.skill, message);
       if ("result" in message) {
-        console.log(`[saihai] Skill completed: ${step.skill}`);
+        console.log(`[onegai] Skill completed: ${step.skill}`);
       }
     }
   } catch (e) {

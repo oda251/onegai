@@ -7,7 +7,7 @@ import { inspectWorkflow } from "../src/inspect";
 let tmpDir: string;
 
 beforeEach(() => {
-  tmpDir = mkdtempSync(join(tmpdir(), "saihai-inspect-test-"));
+  tmpDir = mkdtempSync(join(tmpdir(), "onegai-inspect-test-"));
   mkdirSync(join(tmpDir, "skills/dev"), { recursive: true });
   mkdirSync(join(tmpDir, "workflows"), { recursive: true });
 });

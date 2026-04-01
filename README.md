@@ -1,10 +1,10 @@
-# saihai
+# onegai
 
 Declarative workflow orchestrator for AI agents.
 
 ## What it does
 
-saihai runs workflows that combine AI agent skills with shell commands. Workflows are YAML files defining jobs and steps with DAG-based dependency resolution.
+onegai runs workflows that combine AI agent skills with shell commands. Workflows are YAML files defining jobs and steps with DAG-based dependency resolution.
 
 ```yaml
 # .claude/workflows/dev/implement.yml
@@ -47,7 +47,7 @@ inputs:
 
 ## Core values
 
-- **Hallucination suppression**: Evidenced inputs require citations. saihai verifies citations exist before execution (Intent Gate).
+- **Hallucination suppression**: Evidenced inputs require citations. onegai verifies citations exist before execution (Intent Gate).
 - **Progressive disclosure**: Workers receive only what they need. Process isolation prevents context leakage.
 - **Declarative workflows**: Jobs, steps, and dependencies defined in YAML. No code changes to add workflows.
 
@@ -59,7 +59,7 @@ inputs:
 ## Install
 
 ```bash
-npm install -g saihai
+npm install -g onegai
 ```
 
 For development:
@@ -71,20 +71,20 @@ bun install
 ## CLI
 
 ```bash
-saihai run <workflow.yml> [--input key=json]   # Run a workflow
-saihai workflows [--context]                   # List available workflows
-saihai inspect <workflow.yml>                  # Show required inputs as JSON
-saihai view <run-id> [--json]                  # View run results
+onegai run <workflow.yml> [--input key=json]   # Run a workflow
+onegai workflows [--context]                   # List available workflows
+onegai inspect <workflow.yml>                  # Show required inputs as JSON
+onegai view <run-id> [--json]                  # View run results
 ```
 
 ## How it works
 
-1. `saihai workflows` shows available workflows with their required inputs
-2. `saihai run` validates inputs (Intent Gate), resolves the DAG, executes jobs in parallel batches
+1. `onegai workflows` shows available workflows with their required inputs
+2. `onegai run` validates inputs (Intent Gate), resolves the DAG, executes jobs in parallel batches
 3. `skill:` steps run via Claude Agent SDK with process isolation
 4. `run:` steps execute shell commands
 5. Step outputs flow via `${{ steps.<id>.outputs.<key> }}` references
-6. Results are persisted in `.saihai/runs/`
+6. Results are persisted in `.onegai/runs/`
 
 ## File structure
 
@@ -99,6 +99,6 @@ Skills are resolved from: project `.claude/skills/`, repo root, `~/.claude/skill
 
 ## Design docs
 
-- [Design Philosophy](./docs/2026-03-30-dec-saihai-design-philosophy.md)
-- [v2 Specification](./docs/2026-03-31-dec-saihai-v2-spec.md)
+- [Design Philosophy](./docs/2026-03-30-dec-onegai-design-philosophy.md)
+- [v2 Specification](./docs/2026-03-31-dec-onegai-v2-spec.md)
 - [Jobs/Steps Architecture](./docs/2026-03-31-con-jobs-steps-architecture.md)

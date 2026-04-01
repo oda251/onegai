@@ -7,6 +7,7 @@ import { runWorkflow } from "./runner";
 import { inspectWorkflow } from "./inspect";
 import { resolveSkillsDirs, resolveWorkflowsDirs, findWorkflowFiles, resolveWorkflow } from "./paths";
 import { detectCallerMode } from "./env";
+import { launchInteractive } from "./interactive-launcher";
 import type { InputEntry, RunResult } from "./types";
 
 const args = process.argv.slice(2);
@@ -67,8 +68,16 @@ async function handleRun(runArgs: string[]) {
     console.error(`Workflow not found: ${workflowArg}`);
     process.exit(1);
   }
-  const workflow = parseWorkflowFile(workflowPath);
   const callerMode = detectCallerMode();
+  const hasInputs = Object.keys(inputs).length > 0;
+
+  if (callerMode === "human" && !hasInputs) {
+    console.log(`[onegai] Interactive mode: collecting inputs for ${workflowArg}`);
+    await launchInteractive({ workflowPath, cwd, skillsDirs, runStoreDir });
+    return;
+  }
+
+  const workflow = parseWorkflowFile(workflowPath);
 
   console.log(`[onegai] Running workflow: ${workflow.name || workflowArg}`);
 

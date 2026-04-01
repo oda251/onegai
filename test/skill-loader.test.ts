@@ -186,4 +186,30 @@ inputs:
     const skill = loadSkill([tmpDir], "dev/ws");
     expect(skill.body).toBe("Work here.");
   });
+
+  it("loads skill with interactive flag", () => {
+    writeFileSync(join(tmpDir, "dev/dialog.md"), `---
+interactive: true
+model: haiku
+inputs:
+  target: Target workflow
+---
+
+Collect inputs from the user.`);
+
+    const skill = loadSkill([tmpDir], "dev/dialog");
+    expect(skill.frontmatter.interactive).toBe(true);
+  });
+
+  it("defaults interactive to false", () => {
+    writeFileSync(join(tmpDir, "dev/normal.md"), `---
+inputs:
+  what: Details
+---
+
+Work.`);
+
+    const skill = loadSkill([tmpDir], "dev/normal");
+    expect(skill.frontmatter.interactive).toBeUndefined();
+  });
 });

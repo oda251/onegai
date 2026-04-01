@@ -50,6 +50,7 @@ export interface SkillFrontmatter {
   model?: string;
   tools?: string[];
   "permission-mode"?: string;
+  interactive?: boolean;
   inputs: Record<string, InputSpec>;
 }
 

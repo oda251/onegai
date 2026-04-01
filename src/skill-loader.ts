@@ -17,6 +17,7 @@ const SkillFrontmatterSchema = v.object({
   model: v.optional(v.string()),
   tools: v.optional(v.array(v.string())),
   "permission-mode": v.optional(v.picklist(["default", "acceptEdits", "bypassPermissions", "plan", "dontAsk"])),
+  interactive: v.optional(v.boolean()),
   inputs: v.record(v.string(), InputSpecSchema),
 });
 

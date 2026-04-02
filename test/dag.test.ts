@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test";
-import { getParallelBatches } from "../src/dag";
-import type { Workflow } from "../src/types";
+import { getParallelBatches } from "@core/dag";
+import type { Workflow } from "@core/types";
 
 function makeWorkflow(jobs: Record<string, { needs?: string[] }>): Workflow {
   const wfJobs: Workflow["jobs"] = {};
@@ -10,15 +10,21 @@ function makeWorkflow(jobs: Record<string, { needs?: string[] }>): Workflow {
   return { name: "test", jobs: wfJobs };
 }
 
+function unwrap(wf: Workflow) {
+  const result = getParallelBatches(wf);
+  if (result.isErr()) throw new Error(result.error);
+  return result.value;
+}
+
 describe("getParallelBatches", () => {
   it("groups independent jobs in one batch", () => {
-    const batches = getParallelBatches(makeWorkflow({ a: {}, b: {}, c: {} }));
+    const batches = unwrap(makeWorkflow({ a: {}, b: {}, c: {} }));
     expect(batches).toHaveLength(1);
     expect(batches[0]).toHaveLength(3);
   });
 
   it("creates sequential batches for chain", () => {
-    const batches = getParallelBatches(makeWorkflow({
+    const batches = unwrap(makeWorkflow({
       a: {},
       b: { needs: ["a"] },
       c: { needs: ["b"] },
@@ -30,7 +36,7 @@ describe("getParallelBatches", () => {
   });
 
   it("parallelizes diamond DAG correctly", () => {
-    const batches = getParallelBatches(makeWorkflow({
+    const batches = unwrap(makeWorkflow({
       a: {},
       b: { needs: ["a"] },
       c: { needs: ["a"] },
@@ -42,10 +48,12 @@ describe("getParallelBatches", () => {
     expect(batches[2]).toEqual(["d"]);
   });
 
-  it("throws on circular dependency", () => {
-    expect(() => getParallelBatches(makeWorkflow({
+  it("returns error on circular dependency", () => {
+    const result = getParallelBatches(makeWorkflow({
       a: { needs: ["b"] },
       b: { needs: ["a"] },
-    }))).toThrow("Circular");
+    }));
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) expect(result.error).toContain("Circular");
   });
 });

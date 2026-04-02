@@ -1,4 +1,4 @@
-import type { InputEntry, Citation } from "./types";
+import type { InputValue, Citation } from "@core/types";
 
 // --- Worker protocol (shared across all skill steps) ---
 
@@ -22,7 +22,7 @@ evidenced 出力（情報源がある場合は必ずこの形式を使う）:
 
 // --- Input formatting ---
 
-export function formatInputs(inputs: Record<string, InputEntry>): string {
+export function formatInputs(inputs: Record<string, InputValue>): string {
   return Object.entries(inputs)
     .map(([key, entry]) => {
       if (entry.type === "plain") return `- **${key}**: ${entry.value}`;
@@ -41,6 +41,33 @@ function citationSource(c: Citation): string {
     case "command": return c.command;
     case "uri": return c.source;
   }
+}
+
+// --- Worker prompt ---
+
+export function buildWorkerPrompt(
+  body: string,
+  inputs: Record<string, InputValue>,
+  requiredOutputs: string[],
+  workflowFile?: string,
+): string {
+  const sections = [
+    `## Task\n\n### Inputs\n\n${formatInputs(inputs)}`,
+  ];
+
+  if (requiredOutputs.length > 0) {
+    const outputLines = requiredOutputs.map((key) => `- **${key}**`).join("\n");
+    sections.push(`### Outputs\n\n完了時に以下を GITHUB_OUTPUT に書き込む:\n\necho "key=value" >> $GITHUB_OUTPUT\n\n${outputLines}`);
+  }
+
+  if (workflowFile) {
+    sections.push(`### Context\n\nWorkflow: \`${workflowFile}\``);
+  }
+
+  sections.push(`## Workflow\n\n${body}`);
+  sections.push(WORKER_PROTOCOL);
+
+  return sections.join("\n\n");
 }
 
 // --- Interactive launcher prompt ---

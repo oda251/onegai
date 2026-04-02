@@ -1,9 +1,15 @@
 import { describe, it, expect } from "bun:test";
-import { parseWorkflow } from "../src/workflow-parser";
+import { parseWorkflow } from "@core/workflow-schema";
+
+function unwrap(raw: string) {
+  const result = parseWorkflow(raw);
+  if (result.isErr()) throw new Error(result.error);
+  return result.value;
+}
 
 describe("parseWorkflow", () => {
   it("parses a simple workflow with run steps", () => {
-    const wf = parseWorkflow(`
+    const wf = unwrap(`
 name: Test
 jobs:
   lint:
@@ -19,7 +25,7 @@ jobs:
   });
 
   it("parses skill steps with id and inputs", () => {
-    const wf = parseWorkflow(`
+    const wf = unwrap(`
 name: Dev
 jobs:
   impl:
@@ -44,7 +50,7 @@ jobs:
   });
 
   it("parses needs as array", () => {
-    const wf = parseWorkflow(`
+    const wf = unwrap(`
 name: DAG
 jobs:
   a:
@@ -62,7 +68,7 @@ jobs:
   });
 
   it("parses needs as single string", () => {
-    const wf = parseWorkflow(`
+    const wf = unwrap(`
 name: Single
 jobs:
   a:
@@ -76,12 +82,13 @@ jobs:
     expect(wf.jobs.b.needs).toEqual(["a"]);
   });
 
-  it("throws on missing jobs", () => {
-    expect(() => parseWorkflow("name: Empty")).toThrow();
+  it("returns error on missing jobs", () => {
+    const result = parseWorkflow("name: Empty");
+    expect(result.isErr()).toBe(true);
   });
 
   it("handles mixed skill and run steps", () => {
-    const wf = parseWorkflow(`
+    const wf = unwrap(`
 name: Mixed
 jobs:
   build:
@@ -98,7 +105,7 @@ jobs:
   });
 
   it("parses multiple jobs", () => {
-    const wf = parseWorkflow(`
+    const wf = unwrap(`
 name: Multi
 jobs:
   lint:
@@ -117,7 +124,7 @@ jobs:
   });
 
   it("defaults name to empty string", () => {
-    const wf = parseWorkflow(`
+    const wf = unwrap(`
 jobs:
   a:
     steps:
@@ -126,14 +133,8 @@ jobs:
     expect(wf.name).toBe("");
   });
 
-  it("throws on empty steps", () => {
-    expect(() => parseWorkflow(`
-name: Bad
-jobs:
-  a:
-    steps: []
-`)).not.toThrow();
-    const wf = parseWorkflow(`
+  it("allows empty steps", () => {
+    const wf = unwrap(`
 name: Empty
 jobs:
   a:
@@ -143,7 +144,7 @@ jobs:
   });
 
   it("ignores unknown step fields", () => {
-    const wf = parseWorkflow(`
+    const wf = unwrap(`
 name: Extra
 jobs:
   a:
@@ -156,7 +157,7 @@ jobs:
   });
 
   it("parses skill step without id or inputs", () => {
-    const wf = parseWorkflow(`
+    const wf = unwrap(`
 name: Minimal
 jobs:
   a:
@@ -173,7 +174,7 @@ jobs:
   });
 
   it("parses multi-line run command", () => {
-    const wf = parseWorkflow(`
+    const wf = unwrap(`
 name: Multiline
 jobs:
   a:
@@ -190,7 +191,7 @@ jobs:
   });
 
   it("parses complex diamond DAG", () => {
-    const wf = parseWorkflow(`
+    const wf = unwrap(`
 name: Diamond
 jobs:
   setup:
@@ -216,7 +217,7 @@ jobs:
   });
 
   it("parses skill with multiple input refs", () => {
-    const wf = parseWorkflow(`
+    const wf = unwrap(`
 name: Refs
 jobs:
   a:
@@ -237,11 +238,11 @@ jobs:
     }
   });
 
-  it("throws on completely invalid yaml", () => {
-    expect(() => parseWorkflow("{{{{")).toThrow();
+  it("returns error on invalid yaml", () => {
+    expect(parseWorkflow("{{{{").isErr()).toBe(true);
   });
 
-  it("throws on yaml without jobs key", () => {
-    expect(() => parseWorkflow("steps:\n  - run: echo")).toThrow();
+  it("returns error on yaml without jobs key", () => {
+    expect(parseWorkflow("steps:\n  - run: echo").isErr()).toBe(true);
   });
 });

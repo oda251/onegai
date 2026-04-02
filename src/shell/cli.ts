@@ -1,14 +1,17 @@
 #!/usr/bin/env node
 
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { resolve, join } from "node:path";
-import { parseWorkflowFile } from "./workflow-parser";
-import { runWorkflow } from "./runner";
-import { inspectWorkflow } from "./inspect";
-import { resolveSkillsDirs, resolveWorkflowsDirs, findWorkflowFiles, resolveWorkflow } from "./paths";
-import { detectCallerMode } from "./env";
-import { launchInteractive } from "./interactive-launcher";
-import type { InputEntry, RunResult } from "./types";
+import type { InputValue, RunResult } from "@core/types";
+import { loadWorkflowFile } from "@shell/workflow-loader";
+import { runWorkflow } from "@shell/runner";
+import { inspectWorkflow } from "@shell/inspect";
+import { resolveSkillsDirs, resolveWorkflowsDirs, findWorkflowFiles, resolveWorkflow } from "@shell/paths";
+import { detectCallerMode } from "@shell/env";
+import { launchInteractive } from "@shell/interactive-launcher";
+import { setupLogger, getOnegaiLogger } from "@shell/logger";
+
+await setupLogger();
 
 const args = process.argv.slice(2);
 const command = args[0];
@@ -42,7 +45,7 @@ async function handleRun(runArgs: string[]) {
     process.exit(1);
   }
 
-  const inputs: Record<string, InputEntry> = {};
+  const inputs: Record<string, InputValue> = {};
   for (let i = 1; i < runArgs.length; i++) {
     if (runArgs[i] === "--input" && runArgs[i + 1]) {
       const eq = runArgs[i + 1].indexOf("=");
@@ -72,14 +75,19 @@ async function handleRun(runArgs: string[]) {
   const hasInputs = Object.keys(inputs).length > 0;
 
   if (callerMode === "human" && !hasInputs) {
-    console.log(`[onegai] Interactive mode: collecting inputs for ${workflowArg}`);
+    getOnegaiLogger().info(`Interactive mode: collecting inputs for ${workflowArg}`);
     await launchInteractive({ workflowPath, cwd, skillsDirs, runStoreDir });
     return;
   }
 
-  const workflow = parseWorkflowFile(workflowPath);
+  const workflowResult = loadWorkflowFile(workflowPath);
+  if (workflowResult.isErr()) {
+    console.error(workflowResult.error);
+    process.exit(1);
+  }
+  const workflow = workflowResult.value;
 
-  console.log(`[onegai] Running workflow: ${workflow.name || workflowArg}`);
+  getOnegaiLogger().info(`Running workflow: ${workflow.name || workflowArg}`);
 
   const result = await runWorkflow(workflow, {
     cwd,
@@ -90,7 +98,7 @@ async function handleRun(runArgs: string[]) {
     callerMode,
   });
 
-  console.log(`[onegai] Workflow ${result.status}: ${result.id}`);
+  getOnegaiLogger().info(`Workflow ${result.status}: ${result.id}`);
   if (result.status === "failed") {
     process.exit(1);
   }
@@ -118,12 +126,13 @@ function handleView(viewArgs: string[]) {
   }
 
   const runPath = join(process.cwd(), ".onegai", "runs", runId, "run.json");
-  if (!existsSync(runPath)) {
+  let data: RunResult;
+  try {
+    data = JSON.parse(readFileSync(runPath, "utf-8"));
+  } catch {
     console.error(`Run not found: ${runId}`);
     process.exit(1);
   }
-
-  const data: RunResult = JSON.parse(readFileSync(runPath, "utf-8"));
   if (viewArgs.includes("--json")) {
     console.log(JSON.stringify(data, null, 2));
   } else {

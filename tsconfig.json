@@ -5,12 +5,16 @@
     "moduleResolution": "bundler",
     "types": ["bun-types"],
     "outDir": "dist",
-    "rootDir": "src",
+    "rootDir": ".",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "declaration": true
+    "declaration": true,
+    "paths": {
+      "@core/*": ["./src/core/*"],
+      "@shell/*": ["./src/shell/*"]
+    }
   },
-  "include": ["src"],
-  "exclude": ["dist", "test"]
+  "include": ["src", "test"],
+  "exclude": ["dist"]
 }

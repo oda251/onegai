@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { tryParseEvidenced } from "../src/executor";
+import { tryParseEvidenced } from "@core/output-format";
 
 describe("tryParseEvidenced", () => {
   it("parses valid evidenced JSON", () => {

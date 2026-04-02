@@ -1,22 +1,35 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { nanoid } from "nanoid";
-import type { Workflow, RunResult, JobResult, CallerMode, InputEntry } from "./types";
-import { getParallelBatches } from "./dag";
-import { executeStep } from "./executor";
+import type { Workflow, RunResult, JobResult, CallerMode, InputValue } from "@core/types";
+import { getParallelBatches } from "@core/dag";
+import { executeStep } from "@shell/executor";
+import { getOnegaiLogger } from "@shell/logger";
 
 interface RunOptions {
   cwd: string;
   skillsDirs: string[];
   workflowFile: string;
-  inputs: Record<string, InputEntry>;
+  inputs: Record<string, InputValue>;
   runStoreDir: string;
   callerMode: CallerMode;
 }
 
 export async function runWorkflow(workflow: Workflow, options: RunOptions): Promise<RunResult> {
+  const log = getOnegaiLogger();
   const runId = `run-${nanoid(8)}`;
-  const batches = getParallelBatches(workflow);
+  const batchesResult = getParallelBatches(workflow);
+  if (batchesResult.isErr()) {
+    return {
+      id: runId,
+      workflow: options.workflowFile,
+      status: "failed",
+      jobs: {},
+      startedAt: new Date().toISOString(),
+      finishedAt: new Date().toISOString(),
+    };
+  }
+  const batches = batchesResult.value;
 
   const result: RunResult = {
     id: runId,
@@ -27,7 +40,7 @@ export async function runWorkflow(workflow: Workflow, options: RunOptions): Prom
   };
 
   const failedJobs = new Set<string>();
-  const stepOutputs: Record<string, Record<string, InputEntry>> = {};
+  const stepOutputs: Record<string, Record<string, InputValue>> = {};
 
   for (const batch of batches) {
     const jobPromises = batch.map(async (jobId) => {
@@ -46,7 +59,7 @@ export async function runWorkflow(workflow: Workflow, options: RunOptions): Prom
       const jobResult: JobResult = { id: jobId, status: "running", steps: [] };
       result.jobs[jobId] = jobResult;
 
-      console.log(`[onegai] Starting job: ${jobId}`);
+      log.info(`Starting job: ${jobId}`);
 
       for (const step of job.steps) {
         const stepResult = await executeStep(step, {
@@ -68,14 +81,14 @@ export async function runWorkflow(workflow: Workflow, options: RunOptions): Prom
         if (stepResult.status === "failed") {
           jobResult.status = "failed";
           failedJobs.add(jobId);
-          console.error(`[onegai] Step failed in job ${jobId}: ${stepResult.error}`);
+          log.error(`Step failed in job ${jobId}: ${stepResult.error}`);
           break;
         }
       }
 
       if (jobResult.status === "running") {
         jobResult.status = "done";
-        console.log(`[onegai] Job completed: ${jobId}`);
+        log.info(`Job completed: ${jobId}`);
       }
     });
 

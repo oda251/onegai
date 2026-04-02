@@ -1,7 +1,7 @@
-import { parseWorkflowFile } from "./workflow-parser";
-import { loadSkill } from "./skill-loader";
-import { extractOutputKeys } from "./output-resolver";
-import type { InputSpec } from "./types";
+import type { InputDefinition } from "@core/types";
+import { extractOutputKeys } from "@core/output-resolver";
+import { loadWorkflowFile } from "@shell/workflow-loader";
+import { loadSkill } from "@shell/skill-loader";
 
 interface InspectResult {
   name: string;
@@ -10,19 +10,19 @@ interface InspectResult {
 }
 
 export function inspectWorkflow(workflowPath: string, skillsDirs: string[]): InspectResult {
-  const workflow = parseWorkflowFile(workflowPath);
+  const workflowResult = loadWorkflowFile(workflowPath);
+  if (workflowResult.isErr()) return { name: "", path: workflowPath, requiredInputs: [] };
+  const workflow = workflowResult.value;
 
-  const allInputs: Record<string, InputSpec> = {};
+  const allInputs: Record<string, InputDefinition> = {};
   for (const job of Object.values(workflow.jobs)) {
     for (const step of job.steps) {
       if (step.type !== "skill") continue;
-      try {
-        const skill = loadSkill(skillsDirs, step.skill);
-        for (const [key, spec] of Object.entries(skill.frontmatter.inputs)) {
+      const skillResult = loadSkill(skillsDirs, step.skill);
+      if (skillResult.isOk()) {
+        for (const [key, spec] of Object.entries(skillResult.value.frontmatter.inputs)) {
           if (!(key in allInputs)) allInputs[key] = spec;
         }
-      } catch {
-        // Skill not found — skip
       }
     }
   }

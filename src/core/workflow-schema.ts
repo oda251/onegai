@@ -1,7 +1,7 @@
-import { readFileSync } from "node:fs";
 import { parse as parseYaml } from "yaml";
 import * as v from "valibot";
-import type { Workflow, Job, Step, SkillStep, RunStep } from "./types";
+import { ok, err, type Result } from "neverthrow";
+import type { Workflow, Job, Step, SkillStep, RunStep } from "@core/types";
 
 const SkillStepSchema = v.object({
   skill: v.string(),
@@ -38,25 +38,25 @@ function normalizeStep(raw: v.InferOutput<typeof StepSchema>): Step {
   return step;
 }
 
-export function parseWorkflow(raw: string): Workflow {
-  const doc = parseYaml(raw);
-  const parsed = v.parse(WorkflowSchema, doc);
+export function parseWorkflow(raw: string): Result<Workflow, string> {
+  try {
+    const doc = parseYaml(raw);
+    const parsed = v.parse(WorkflowSchema, doc);
 
-  const jobs: Record<string, Job> = {};
-  for (const [id, jobRaw] of Object.entries(parsed.jobs)) {
-    const needs = jobRaw.needs
-      ? Array.isArray(jobRaw.needs) ? jobRaw.needs : [jobRaw.needs]
-      : [];
-    jobs[id] = {
-      id,
-      needs,
-      steps: jobRaw.steps.map(normalizeStep),
-    };
+    const jobs: Record<string, Job> = {};
+    for (const [id, jobRaw] of Object.entries(parsed.jobs)) {
+      const needs = jobRaw.needs
+        ? Array.isArray(jobRaw.needs) ? jobRaw.needs : [jobRaw.needs]
+        : [];
+      jobs[id] = {
+        id,
+        needs,
+        steps: jobRaw.steps.map(normalizeStep),
+      };
+    }
+
+    return ok({ name: parsed.name ?? "", jobs });
+  } catch (e) {
+    return err(`Invalid workflow: ${(e as Error).message}`);
   }
-
-  return { name: parsed.name ?? "", jobs };
-}
-
-export function parseWorkflowFile(path: string): Workflow {
-  return parseWorkflow(readFileSync(path, "utf-8"));
 }

@@ -1,21 +1,24 @@
 import { spawnSync } from "node:child_process";
-import { readFileSync, unlinkSync } from "node:fs";
+import { unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { nanoid } from "nanoid";
 import { query, type PermissionMode } from "@anthropic-ai/claude-agent-sdk";
-import type { Step, SkillStep, StepResult, InputEntry, Workflow, CallerMode } from "./types";
-import { loadSkill } from "./skill-loader";
-import { buildWorkerPrompt } from "./prompt-builder";
-import { createDefaultVerifier, runIntentGate } from "./intent-gate";
-import { resolveOutputRefs, resolveOutputRefsTyped, extractOutputKeys } from "./output-resolver";
+import type { Step, SkillStep, StepResult, InputValue, Workflow, CallerMode } from "@core/types";
+import { buildWorkerPrompt } from "@core/prompts";
+import { runIntentGate } from "@core/intent-gate";
+import { resolveOutputRefs, resolveOutputRefsTyped, extractOutputKeys, entryToString } from "@core/output-resolver";
+import { loadSkill } from "@shell/skill-loader";
+import { createDefaultVerifier } from "@shell/evidence-verifier";
+import { parseGithubOutput } from "@shell/output-reader";
+import { getOnegaiLogger } from "@shell/logger";
 
 interface StepContext {
   cwd: string;
   skillsDirs: string[];
   workflowFile?: string;
   workflow: Workflow;
-  stepOutputs: Record<string, Record<string, InputEntry>>;
-  inputs: Record<string, InputEntry>;
+  stepOutputs: Record<string, Record<string, InputValue>>;
+  inputs: Record<string, InputValue>;
   callerMode: CallerMode;
 }
 
@@ -27,66 +30,29 @@ function cleanupFile(path: string) {
   try { unlinkSync(path); } catch { /* ignore */ }
 }
 
-export function tryParseEvidenced(raw: string): InputEntry {
-  try {
-    const parsed = JSON.parse(raw);
-    if (parsed?.type === "evidenced" && typeof parsed.body === "string" && Array.isArray(parsed.citations)) {
-      return { type: "evidenced", body: parsed.body, citations: parsed.citations };
-    }
-  } catch { /* not JSON or not evidenced */ }
-  return { type: "plain", value: raw };
-}
-
-function parseGithubOutput(outputFile: string): Record<string, InputEntry> {
-  let content: string;
-  try {
-    content = readFileSync(outputFile, "utf-8");
-  } catch {
-    return {};
-  }
-  const outputs: Record<string, InputEntry> = {};
-
-  const heredocPattern = /^(\w+)<<(\S+)\n([\s\S]*?)\n\2$/gm;
-  let match;
-  while ((match = heredocPattern.exec(content)) !== null) {
-    outputs[match[1]] = tryParseEvidenced(match[3]);
-  }
-
-  for (const line of content.split("\n")) {
-    if (line.includes("<<")) continue;
-    const eq = line.indexOf("=");
-    if (eq > 0) {
-      const key = line.slice(0, eq);
-      if (!(key in outputs)) outputs[key] = { type: "plain", value: line.slice(eq + 1) };
-    }
-  }
-
-  return outputs;
-}
-
-function failedStep(step: Step, error: string, outputs: Record<string, InputEntry> = {}): StepResult {
+function failedStep(step: Step, error: string, outputs: Record<string, InputValue> = {}): StepResult {
   return { id: step.id, type: step.type, status: "failed", outputs, error };
 }
 
 // oxlint-disable-next-line no-explicit-any -- SDK message is untyped
 function logWorkerMessage(skill: string, message: any) {
-  const prefix = `[onegai:${skill}]`;
+  const log = getOnegaiLogger(skill);
   if (message.type === "assistant" && message.message?.content) {
     for (const block of message.message.content) {
       if (block.type === "text" && block.text) {
-        console.log(`${prefix} ${block.text}`);
+        log.info(block.text);
       } else if (block.type === "tool_use") {
-        console.log(`${prefix} tool: ${block.name}${block.input?.command ? ` — ${block.input.command}` : ""}`);
+        log.info(`tool: ${block.name}${block.input?.command ? ` — ${block.input.command}` : ""}`);
       }
     }
   } else if (message.type === "result") {
     if (message.is_error) {
-      console.error(`${prefix} error: ${message.result}`);
+      log.error(String(message.result));
     }
   }
 }
 
-function withOutputFile<T>(cwd: string, fn: (outputFile: string) => T): { result: T; outputs: Record<string, InputEntry> } {
+function withOutputFile<T>(cwd: string, fn: (outputFile: string) => T): { result: T; outputs: Record<string, InputValue> } {
   const outputFile = tempOutputPath(cwd);
   const result = fn(outputFile);
   const outputs = parseGithubOutput(outputFile);
@@ -122,14 +88,16 @@ function executeRunStep(step: Step & { type: "run" }, ctx: StepContext): StepRes
 }
 
 async function executeSkillStep(step: SkillStep, ctx: StepContext): Promise<StepResult> {
-  const skill = loadSkill(ctx.skillsDirs, step.skill);
+  const skillResult = loadSkill(ctx.skillsDirs, step.skill);
+  if (skillResult.isErr()) return failedStep(step, skillResult.error);
+  const skill = skillResult.value;
 
-  const resolvedInputs: Record<string, InputEntry> = {};
+  const resolvedInputs: Record<string, InputValue> = {};
   if (step.inputs) {
     for (const [key, val] of Object.entries(step.inputs)) {
       const resolved = resolveOutputRefsTyped(val, ctx.stepOutputs);
-      if (!resolved.ok) return failedStep(step, `${key}: ${resolved.error}`);
-      resolvedInputs[key] = resolved.entry;
+      if (resolved.isErr()) return failedStep(step, `${key}: ${resolved.error}`);
+      resolvedInputs[key] = resolved.value;
     }
   }
 
@@ -157,7 +125,7 @@ async function executeSkillStep(step: SkillStep, ctx: StepContext): Promise<Step
   const requiredOutputs = step.id ? extractOutputKeys(ctx.workflow, step.id) : [];
   const prompt = buildWorkerPrompt(skill.body, mergedInputs, requiredOutputs, ctx.workflowFile);
 
-  console.log(`[onegai] Running skill: ${step.skill}`);
+  getOnegaiLogger().info(`Running skill: ${step.skill}`);
 
   const outputFile = tempOutputPath(ctx.cwd);
 
@@ -176,7 +144,7 @@ async function executeSkillStep(step: SkillStep, ctx: StepContext): Promise<Step
     })) {
       logWorkerMessage(step.skill, message);
       if ("result" in message) {
-        console.log(`[onegai] Skill completed: ${step.skill}`);
+        getOnegaiLogger().info(`Skill completed: ${step.skill}`);
       }
     }
   } catch (e) {
@@ -189,8 +157,7 @@ async function executeSkillStep(step: SkillStep, ctx: StepContext): Promise<Step
 
   const rejectEntry = outputs.reject_reason;
   if (rejectEntry) {
-    const reason = rejectEntry.type === "plain" ? rejectEntry.value : rejectEntry.body;
-    return failedStep(step, `Rejected: ${reason}`, outputs);
+    return failedStep(step, `Rejected: ${entryToString(rejectEntry)}`, outputs);
   }
 
   return { id: step.id, type: "skill", status: "done", outputs };

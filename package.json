@@ -27,8 +27,8 @@
     "THIRD_PARTY_LICENSES"
   ],
   "scripts": {
-    "dev": "bun src/cli.ts",
-    "build": "bun build src/cli.ts --outdir dist --target node --format esm --external @anthropic-ai/claude-agent-sdk",
+    "dev": "bun src/shell/cli.ts",
+    "build": "bun build src/shell/cli.ts --outdir dist --target node --format esm --external @anthropic-ai/claude-agent-sdk",
     "test": "bun test",
     "lint": "oxlint -c oxlintrc.json --type-aware src/ test/",
     "check": "bun test && oxlint -c oxlintrc.json --type-aware src/ test/",
@@ -36,6 +36,7 @@
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.87",
+    "@logtape/logtape": "^2.0.5",
     "gray-matter": "^4.0.3",
     "nanoid": "^5.1.7",
     "neverthrow": "^8.2.0",

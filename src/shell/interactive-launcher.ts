@@ -1,6 +1,6 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
-import { inspectWorkflow } from "./inspect";
-import { buildInteractiveLaunchPrompt } from "./prompts";
+import { inspectWorkflow } from "@shell/inspect";
+import { buildInteractiveLaunchPrompt } from "@core/prompts";
 
 interface LaunchOptions {
   workflowPath: string;

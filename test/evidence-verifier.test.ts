@@ -1,19 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { tmpdir } from "node:os";
-import { createDefaultVerifier } from "../src/intent-gate";
-import type { EvidencedInput } from "../src/types";
+import { createDefaultVerifier } from "@shell/evidence-verifier";
+import { createTestDir, type TestDir } from "./helpers";
+import type { EvidencedInput } from "@core/types";
 
-let tmpDir: string;
+let t: TestDir;
 
-beforeEach(() => {
-  tmpDir = mkdtempSync(join(tmpdir(), "onegai-evidence-test-"));
-});
-
-afterEach(() => {
-  rmSync(tmpDir, { recursive: true, force: true });
-});
+beforeEach(() => { t = createTestDir("evidence"); });
+afterEach(() => { t.cleanup(); });
 
 function entry(key: string, input: EvidencedInput) {
   return [{ key, entry: input }];
@@ -23,7 +18,7 @@ describe("createDefaultVerifier", () => {
   const verify = createDefaultVerifier();
 
   it("finds excerpt in a text file (transcript)", async () => {
-    const transcript = join(tmpDir, "session.jsonl");
+    const transcript = join(t.root, "session.jsonl");
     writeFileSync(transcript, '{"type":"user","message":{"content":"JWT認証に移行したい"}}\n');
 
     const results = await verify(
@@ -40,7 +35,7 @@ describe("createDefaultVerifier", () => {
   });
 
   it("reports missing excerpt in transcript", async () => {
-    const transcript = join(tmpDir, "session.jsonl");
+    const transcript = join(t.root, "session.jsonl");
     writeFileSync(transcript, '{"type":"user","message":{"content":"hello"}}\n');
 
     const results = await verify(
@@ -58,7 +53,7 @@ describe("createDefaultVerifier", () => {
   });
 
   it("finds excerpt in a source file (uri)", async () => {
-    const srcFile = join(tmpDir, "auth.ts");
+    const srcFile = join(t.root, "auth.ts");
     writeFileSync(srcFile, 'app.use(session({ store: new RedisStore() }))');
 
     const results = await verify(
@@ -74,7 +69,7 @@ describe("createDefaultVerifier", () => {
   });
 
   it("reports missing excerpt in source file", async () => {
-    const srcFile = join(tmpDir, "auth.ts");
+    const srcFile = join(t.root, "auth.ts");
     writeFileSync(srcFile, "const x = 1;");
 
     const results = await verify(

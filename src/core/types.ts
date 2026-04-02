@@ -32,13 +32,13 @@ export interface EvidencedInput {
   citations: Citation[];
 }
 
-export type InputEntry = PlainInput | EvidencedInput;
+export type InputValue = PlainInput | EvidencedInput;
 
 export type InputType = "plain" | "evidenced";
 
 export type CallerMode = "human" | "agent";
 
-export interface InputSpec {
+export interface InputDefinition {
   description: string;
   type: InputType;
 }
@@ -51,7 +51,7 @@ export interface SkillFrontmatter {
   tools?: string[];
   "permission-mode"?: string;
   interactive?: boolean;
-  inputs: Record<string, InputSpec>;
+  inputs: Record<string, InputDefinition>;
 }
 
 export interface Skill {
@@ -98,7 +98,7 @@ export interface StepResult {
   id?: string;
   type: "skill" | "run";
   status: StepStatus;
-  outputs: Record<string, InputEntry>;
+  outputs: Record<string, InputValue>;
   error?: string;
 }
 

@@ -1,8 +1,8 @@
 import { describe, it, expect } from "bun:test";
-import { resolveOutputRefs, resolveOutputRefsTyped, extractOutputKeys } from "../src/output-resolver";
-import type { InputEntry } from "../src/types";
+import { resolveOutputRefs, resolveOutputRefsTyped, extractOutputKeys } from "@core/output-resolver";
+import type { InputValue } from "@core/types";
 
-function plain(value: string): InputEntry {
+function plain(value: string): InputValue {
   return { type: "plain", value };
 }
 
@@ -45,7 +45,7 @@ describe("resolveOutputRefs", () => {
   });
 
   it("extracts body from evidenced entries in string context", () => {
-    const evidenced: InputEntry = {
+    const evidenced: InputValue = {
       type: "evidenced",
       body: "summary text",
       citations: [{ type: "uri", source: "file.ts", excerpt: "code" }],
@@ -60,7 +60,7 @@ describe("resolveOutputRefs", () => {
 
 describe("resolveOutputRefsTyped", () => {
   it("returns evidenced entry for single reference", () => {
-    const evidenced: InputEntry = {
+    const evidenced: InputValue = {
       type: "evidenced",
       body: "summary",
       citations: [{ type: "uri", source: "file.ts", excerpt: "code" }],
@@ -69,7 +69,8 @@ describe("resolveOutputRefsTyped", () => {
       "${{ steps.impl.outputs.changes }}",
       { impl: { changes: evidenced } },
     );
-    expect(result).toEqual({ ok: true, entry: evidenced });
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) expect(result.value).toEqual(evidenced);
   });
 
   it("returns plain for single reference to plain value", () => {
@@ -77,11 +78,12 @@ describe("resolveOutputRefsTyped", () => {
       "${{ steps.impl.outputs.msg }}",
       { impl: { msg: plain("hello") } },
     );
-    expect(result).toEqual({ ok: true, entry: { type: "plain", value: "hello" } });
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) expect(result.value).toEqual({ type: "plain", value: "hello" });
   });
 
   it("errors when evidenced is mixed with text", () => {
-    const evidenced: InputEntry = {
+    const evidenced: InputValue = {
       type: "evidenced",
       body: "summary",
       citations: [{ type: "uri", source: "file.ts", excerpt: "code" }],
@@ -90,10 +92,8 @@ describe("resolveOutputRefsTyped", () => {
       "prefix ${{ steps.impl.outputs.changes }} suffix",
       { impl: { changes: evidenced } },
     );
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error).toContain("evidenced output cannot be mixed with text");
-    }
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) expect(result.error).toContain("evidenced output cannot be mixed with text");
   });
 
   it("allows plain mixed with text", () => {
@@ -101,7 +101,8 @@ describe("resolveOutputRefsTyped", () => {
       "prefix ${{ steps.impl.outputs.msg }} suffix",
       { impl: { msg: plain("hello") } },
     );
-    expect(result).toEqual({ ok: true, entry: { type: "plain", value: "prefix hello suffix" } });
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) expect(result.value).toEqual({ type: "plain", value: "prefix hello suffix" });
   });
 
   it("returns empty plain for missing reference", () => {
@@ -109,60 +110,63 @@ describe("resolveOutputRefsTyped", () => {
       "${{ steps.missing.outputs.key }}",
       {},
     );
-    expect(result).toEqual({ ok: true, entry: { type: "plain", value: "" } });
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) expect(result.value).toEqual({ type: "plain", value: "" });
   });
 
   it("returns plain for non-reference text", () => {
     const result = resolveOutputRefsTyped("literal text", {});
-    expect(result).toEqual({ ok: true, entry: { type: "plain", value: "literal text" } });
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) expect(result.value).toEqual({ type: "plain", value: "literal text" });
   });
 });
 
 describe("extractOutputKeys", () => {
   it("extracts keys referenced by downstream steps", () => {
     const workflow = {
+      name: "test",
       jobs: {
         build: {
+          id: "build", needs: [] as string[],
           steps: [
-            { id: "impl", type: "skill" as const, skill: "dev/impl" },
-            {
-              type: "skill" as const,
-              skill: "dev/review",
-              inputs: { changes: "${{ steps.impl.outputs.changes }}" },
-            },
+            { type: "skill" as const, skill: "dev/impl", id: "impl" },
+            { type: "skill" as const, skill: "dev/review", inputs: { changes: "${{ steps.impl.outputs.changes }}" } },
           ],
         },
       },
     };
-    const keys = extractOutputKeys(workflow, "impl");
-    expect(keys).toEqual(["changes"]);
+    expect(extractOutputKeys(workflow, "impl")).toEqual(["changes"]);
   });
 
   it("extracts multiple keys", () => {
     const workflow = {
+      name: "test",
       jobs: {
         build: {
+          id: "build", needs: [] as string[],
           steps: [
-            { id: "impl" },
-            {
-              inputs: {
-                changes: "${{ steps.impl.outputs.changes }}",
-                summary: "${{ steps.impl.outputs.summary }}",
-              },
-            },
+            { type: "skill" as const, skill: "dev/impl", id: "impl" },
+            { type: "skill" as const, skill: "dev/report", inputs: {
+              changes: "${{ steps.impl.outputs.changes }}",
+              summary: "${{ steps.impl.outputs.summary }}",
+            }},
           ],
         },
       },
     };
-    const keys = extractOutputKeys(workflow, "impl");
-    expect(keys.sort()).toEqual(["changes", "summary"]);
+    expect(extractOutputKeys(workflow, "impl").sort()).toEqual(["changes", "summary"]);
   });
 
   it("returns empty for unreferenced step", () => {
     const workflow = {
+      name: "test",
       jobs: {
         build: {
-          steps: [{ id: "impl" }, { inputs: {} }],
+          id: "build", needs: [] as string[],
+          steps: [
+            { type: "skill" as const, skill: "dev/impl", id: "impl" },
+            { type: "run" as const, run: "echo ok" },
+          ],
         },
       },
     };
@@ -171,11 +175,13 @@ describe("extractOutputKeys", () => {
 
   it("ignores references to other steps", () => {
     const workflow = {
+      name: "test",
       jobs: {
         build: {
+          id: "build", needs: [] as string[],
           steps: [
-            { id: "impl" },
-            { inputs: { x: "${{ steps.other.outputs.foo }}" } },
+            { type: "skill" as const, skill: "dev/impl", id: "impl" },
+            { type: "skill" as const, skill: "dev/other", inputs: { x: "${{ steps.other.outputs.foo }}" } },
           ],
         },
       },

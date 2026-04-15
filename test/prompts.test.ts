@@ -136,6 +136,18 @@ describe("buildInteractiveLaunchPrompt", () => {
     expect(prompt).toContain("evidenced");
     expect(prompt).toContain("citations");
   });
+
+  it("instructs quoting of --input argument", () => {
+    const prompt = buildInteractiveLaunchPrompt("dev/implement.yml", []);
+    expect(prompt).toContain("シングルクォート");
+    expect(prompt).toMatch(/--input '[^']+'/);
+  });
+
+  it("shows node -e JSON generation for evidenced", () => {
+    const prompt = buildInteractiveLaunchPrompt("dev/implement.yml", []);
+    expect(prompt).toContain("node -e");
+    expect(prompt).toContain("JSON.stringify");
+  });
 });
 
 describe("OUTPUT_FORMAT_SPEC", () => {

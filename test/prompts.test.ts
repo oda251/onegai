@@ -124,10 +124,17 @@ describe("buildInteractiveLaunchPrompt", () => {
     expect(prompt).toContain("plain");
   });
 
-  it("includes execution instructions", () => {
+  it("instructs to run onegai with --input args", () => {
     const prompt = buildInteractiveLaunchPrompt("dev/implement.yml", []);
-    expect(prompt).toContain("onegai run");
-    expect(prompt).toContain("GITHUB_OUTPUT");
+    expect(prompt).toContain("onegai run dev/implement.yml");
+    expect(prompt).toContain("--input");
+    expect(prompt).not.toContain("GITHUB_OUTPUT");
+  });
+
+  it("explains evidenced JSON inline", () => {
+    const prompt = buildInteractiveLaunchPrompt("dev/implement.yml", []);
+    expect(prompt).toContain("evidenced");
+    expect(prompt).toContain("citations");
   });
 });
 

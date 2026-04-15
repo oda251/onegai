@@ -5,8 +5,9 @@ import { formatInputs, OUTPUT_FORMAT_SPEC } from "./shared";
 // anchors; body text is Japanese.
 
 const REJECT_INSTRUCTION = `入力が不十分な場合は reject:
-  echo "reject_reason=理由" >> $GITHUB_OUTPUT
-  exit 1`;
+
+    echo "reject_reason=理由" >> "$GITHUB_OUTPUT"
+    exit 1`;
 
 export function buildWorkerPrompt(
   body: string,

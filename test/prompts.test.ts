@@ -1,5 +1,6 @@
 import { describe, it, expect } from "bun:test";
-import { buildWorkerPrompt, formatInputs, buildInteractiveLaunchPrompt } from "@core/prompts";
+import { buildWorkerPrompt, formatInputs, buildInteractiveLaunchPrompt, OUTPUT_FORMAT_SPEC } from "@core/prompts";
+import { parseGithubOutputContent } from "@core/output-format";
 import type { InputValue } from "@core/types";
 
 describe("buildWorkerPrompt", () => {
@@ -127,5 +128,22 @@ describe("buildInteractiveLaunchPrompt", () => {
     const prompt = buildInteractiveLaunchPrompt("dev/implement.yml", []);
     expect(prompt).toContain("onegai run");
     expect(prompt).toContain("GITHUB_OUTPUT");
+  });
+});
+
+describe("OUTPUT_FORMAT_SPEC", () => {
+  // heredoc 例をそのまま $GITHUB_OUTPUT に書き込んだときに parseGithubOutputContent が
+  // キーを拾えなければならない（行頭固定正規表現との整合性）
+  it("evidenced heredoc example parses round-trip", () => {
+    const match = OUTPUT_FORMAT_SPEC.match(/cat >> "\$GITHUB_OUTPUT" <<'OUTPUTEOF'\n([\s\S]*?)\nOUTPUTEOF/);
+    if (!match) throw new Error("heredoc example not found in OUTPUT_FORMAT_SPEC");
+    const parsed = parseGithubOutputContent(match[1]);
+    expect(parsed.key).toBeDefined();
+    expect(parsed.key.type).toBe("evidenced");
+  });
+
+  it("plain example parses", () => {
+    const parsed = parseGithubOutputContent("foo=bar");
+    expect(parsed.foo).toEqual({ type: "plain", value: "bar" });
   });
 });

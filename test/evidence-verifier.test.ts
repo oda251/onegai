@@ -10,8 +10,8 @@ let t: TestDir;
 beforeEach(() => { t = createTestDir("evidence"); });
 afterEach(() => { t.cleanup(); });
 
-function entry(key: string, input: EvidencedInput) {
-  return [{ key, entry: input }];
+function entry(key: string, input: EvidencedInput): Record<string, { entry: EvidencedInput; key: string }> {
+  return { [key]: { key, entry: input } };
 }
 
 describe("createDefaultVerifier", () => {

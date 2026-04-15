@@ -20,9 +20,16 @@ describe("buildWorkerPrompt", () => {
     expect(prompt).toContain("GITHUB_OUTPUT");
   });
 
+  it("includes output format spec when outputs required", () => {
+    const prompt = buildWorkerPrompt("Work.", {}, ["changes"]);
+    expect(prompt).toContain("evidenced");
+    expect(prompt).toContain("OUTPUTEOF");
+  });
+
   it("omits outputs section when empty", () => {
     const prompt = buildWorkerPrompt("Work.", {}, []);
     expect(prompt).not.toContain("### Outputs");
+    expect(prompt).not.toContain("OUTPUTEOF");
   });
 
   it("includes workflow context when provided", () => {
@@ -42,11 +49,15 @@ describe("buildWorkerPrompt", () => {
     expect(prompt).toContain("Execute the implementation.");
   });
 
-  it("includes protocol section", () => {
+  it("includes reject instruction under inputs", () => {
     const prompt = buildWorkerPrompt("Work.", {}, []);
-    expect(prompt).toContain("## Protocol");
     expect(prompt).toContain("reject_reason");
-    expect(prompt).toContain("evidenced");
+    const inputsIdx = prompt.indexOf("### Inputs");
+    const rejectIdx = prompt.indexOf("reject_reason");
+    const workflowIdx = prompt.indexOf("## Workflow");
+    expect(inputsIdx).toBeGreaterThan(-1);
+    expect(rejectIdx).toBeGreaterThan(inputsIdx);
+    expect(rejectIdx).toBeLessThan(workflowIdx);
   });
 });
 

@@ -58,7 +58,7 @@ export function extractOutputKeys(
 
   for (const job of Object.values(workflow.jobs)) {
     for (const step of job.steps) {
-      if (!step.inputs) continue;
+      if (step.type !== "skill" || !step.inputs) continue;
       for (const val of Object.values(step.inputs)) {
         for (const match of val.matchAll(re)) {
           keys.add(match[1]);
